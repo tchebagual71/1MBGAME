@@ -27,7 +27,8 @@ window.__sim = function (frames, opt = {}) {
       const l = Math.hypot(mx, my); IN.mvx = l > 1 ? mx / l : mx; IN.mvy = l > 1 ? my / l : my;
     }
     try { SCENE.cur.update(dt); SCENE.cur.draw(dt); } catch (e) { out.errs.push(String(e && e.stack || e).slice(0, 300)); LIVE.panic(e); if (out.errs.length > 20) break; }
-    if (SCENE.name !== 'play') { out.scene = SCENE.name; if (opt.stopOnOver) break; RUN.start(); }
+    if (opt.god && S.player) { S.player.inv = Math.max(S.player.inv, .05); S.player.hp = S.player.maxhp; }
+    if (SCENE.name !== 'play' || (S.player && S.player.dead && !RUN.deadT)) { out.scene = SCENE.name; if (opt.stopOnOver) break; out.restarts = (out.restarts || 0) + 1; RUN.start(); }
     if (f % 10 === 0) {
       let ne = 0, np = 0, nes = 0;
       for (const e of ENT.list) { if (!(Number.isFinite(e.x) && Number.isFinite(e.y))) { out.nan++; if (out.nan < 4) out.errs.push('NaN ' + e.type + ' team ' + e.team); } if (e.team === 1) ne++; else if (e.team === 2) np++; else if (e.team === 3) nes++; }
