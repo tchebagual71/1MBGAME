@@ -15,7 +15,7 @@
   // how good a human *thinks* each patch is (expert = sharper preference); unlisted = 1
   const VALUE = { dmg: 3, rate: 2.8, fork: 2.6, hp: 2.4, pierce: 2, crit: 1.8, chain: 1.8, homing: 1.7, scatter: 1.7, orbit: 1.6, blast: 1.6, regen: 1.6, leech: 1.4,
     ecc: 1.4, dashcd: 1.3, turbo: 1.2, split: 1.3, nova: 1.2, ram: 1.1, velocity: 1.1, bounce: 1.2, fat: 1.2, cascade: 1.1, execute: 1.1, rear: 1, side: 1.1,
-    thorns: .9, bullettime: .9, magnet: .5, bits: .5 };
+    thorns: .9, bullettime: .9, magnet: .5, bits: 1.2 };
 
   const Q = window.QA = { cfg: null, log: null, ring: [], f: 0, plan: { mx: 0, my: 0 }, rot: { c: 1, s: 0 }, est: { x: 1, y: 0 }, lastOffer: [] };
 

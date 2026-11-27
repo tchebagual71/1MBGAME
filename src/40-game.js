@@ -121,6 +121,12 @@ GAME.dropBits(e.x, e.y, Math.round(e.T.bits * BITS));
 if (rnd() < LEECH) GAME.heal(1);
 /*HOOK:kill*/`);
 
+  // every collected bit runs through here
+  LIVE.def('ply.bit', 'p', `const VALUE=5, DEFRAG=0;
+S.score += VALUE * S.mult;
+if (DEFRAG > 0 && GAME.bits % DEFRAG === 0) GAME.heal(1);
+/*HOOK:bit*/`);
+
   LIVE.def('ply.tick', 'p,dt', `const MAXHP=5, MAGNET=40, REGEN=0, ORBITALS=0, ORBIT_R=24, SPIN=3.2;
 p.maxhp = MAXHP;
 p.magnet = MAGNET;
@@ -157,7 +163,7 @@ e.vx *= SPEED * e.spd / v;
 e.vy *= SPEED * e.spd / v;
 e.rot += SPIN * dt;`,
 
-    turret: `const RELOAD=3.2, BURST=S.sector ? 3 : 2, GAP=.16, BSPD=94, FAN=.2, FAN_FROM=2;
+    turret: `const RELOAD=3.2, BURST=S.sector ? 3 : 2, GAP=.16, BSPD=94, FAN=.2, FAN_FROM=3;
 e.vx -= e.vx * 4 * dt;
 e.vy -= e.vy * 4 * dt;
 e.rot = GAME.aim(e, p);
@@ -291,6 +297,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     heal(n) { const p = S.player; if (!p || p.dead || p.hp >= p.maxhp) return; p.hp = Math.min(p.maxhp, p.hp + n);
       pop('+' + n + ' HP', p.x, p.y - 12, C.green); GFX.ring(p.x, p.y, 4, 22, C.green, .35); sfx('pickup', { pitch: 1.6 }); },
     slow(t) { slowT = Math.max(slowT, t); },
+    tier: () => hpMul(),          // current enemy toughness: flat-damage effects scale with it so they stay relevant
     hitstop(t) { if (t < .1 && S.t - hsLast < .3) return; hsLast = S.t; hsT = Math.max(hsT, t); },
     // sniper beam: hitscan ray from (x,y) along ang, half-width w
     beam(x, y, ang, w) { const p = S.player; if (!p || p.dead) return;
@@ -422,7 +429,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     }
   }
   function collectBit(e) {
-    S.score += 5 * S.mult; GAME.bits++;
+    GAME.bits++; LIVE.fn['ply.bit'](S.player);
     GFX.spark(e.x, e.y, 0, -20, BITC, .2, 1);
     if (S.t - pickSfxT > .045) { pickChain = S.t - pickSfxT < .4 ? Math.min(pickChain + 1, 16) : 0; pickSfxT = S.t; sfx('pickup', { vol: .35, pitch: 1 + pickChain * .06 }); }
   }
@@ -766,7 +773,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     // enemy bodies -> player (or dash-strike)
     for (let i = 0; i < enemies.length; i++) { const e = enemies[i]; if (e.dead || e.warp > 0 || e.harmless || e.age < (e.safeT || 0)) continue;
       const rr = e.r * .85 + p.r; if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 >= rr * rr) continue;
-      if (p.ram > 0 && p.dashT > 0) { if (e._ram !== p.dashId) { e._ram = p.dashId; ENT.damage(e, p.ram, p); GFX.burst(e.x, e.y, 10, C.white, 90, .3); S.shake = Math.max(S.shake, 3); } }
+      if (p.ram > 0 && p.dashT > 0) { if (e._ram !== p.dashId) { e._ram = p.dashId; ENT.damage(e, e.boss || e.parent ? p.ram * .3 : p.ram, p); GFX.burst(e.x, e.y, 10, C.white, 90, .3); S.shake = Math.max(S.shake, 3); } }   // bosses take 30%: no dash-spam cheese
       else if (p.inv <= 0 && e.contact !== 0) { hurtPlayer(e.contact || 1, e); if (p.dead) return; }
     }
   }
@@ -805,19 +812,19 @@ e.rot = Math.sin(e.age * 3) * .3;`,
   // --- player ---
   up('turbo', 'TURBO_CLOCK', 'SPEED*=1.12 : move faster', { max: 2, apply: () => tune('ply.move', 'SPEED', v => Math.round(v * 1.12)) });
   up('dashcd', 'FAST_DASH', 'COOLDOWN*=.7 : dash more often', { max: 2, apply: () => tune('ply.dash', 'COOLDOWN', v => v * .7) });
-  up('nova', 'DASH_NOVA', '+ for 16: GAME.shoot(ring) : dash emits a nova', { weight: .6, apply: () => hook('ply.dash', 'dash', 'for (let i = 0; i < 16; i++) GAME.shoot(p.x, p.y, Math.cos(i * TAU / 16) * 260, Math.sin(i * TAU / 16) * 260, { team: T_PSHOT, dmg: 3, pierce: 2 });') });
-  up('ram', 'DASH_STRIKE', '+ p.ram = 6 : dash through enemies for 6 dmg', { weight: .6, apply: () => hook('ply.dash', 'dash', 'p.ram = 6;') });
+  up('nova', 'DASH_NOVA', '+ for 16: GAME.shoot(ring) : dash emits a nova', { weight: .6, apply: () => hook('ply.dash', 'dash', 'for (let i = 0; i < 16; i++) GAME.shoot(p.x, p.y, Math.cos(i * TAU / 16) * 260, Math.sin(i * TAU / 16) * 260, { team: T_PSHOT, dmg: 2 * GAME.tier(), pierce: 2 });') });
+  up('ram', 'DASH_STRIKE', '+ p.ram = 8 * tier : dash through enemies', { weight: .6, apply: () => hook('ply.dash', 'dash', 'p.ram = 8 * GAME.tier();') });
   up('hp', 'MALLOC(HP)', 'MAXHP+=1 : +1 max hp, heal 1', { max: 3, weight: 1.2,
     apply() { const ok = tune('ply.tick', 'MAXHP', v => v + 1); const p = S.player; if (ok && p && !p.dead) { p.maxhp++; p.hp = Math.min(p.maxhp, p.hp + 1); } return ok; } });
   up('regen', 'GARBAGE_COLLECT', 'REGEN+=.012 : regenerate 1 hp / 80s', { max: 2, apply: () => tune('ply.tick', 'REGEN', v => v + .012) });
   up('orbit', 'ORBITALS', 'ORBITALS+=2 : satellites shred contacts', { max: 3, apply: () => tune('ply.tick', 'ORBITALS', v => v + 2) });
   up('magnet', 'WIDE_BUS', 'MAGNET*=1.8 : pull bits from afar', { max: 2, weight: .8, apply: () => tune('ply.tick', 'MAGNET', v => Math.round(v * 1.8)) });
   up('ecc', 'ECC_MEMORY', 'BLOCK+=.2 : chance to ignore a hit', { max: 2, apply: () => tune('ply.hurt', 'BLOCK', v => v + .2) });
-  up('thorns', 'THORNS.EXE', '+ GAME.explode(p, 70, 10) : getting hit detonates', { weight: .6, apply: () => hook('ply.hurt', 'hurt', 'GAME.explode(p.x, p.y, 70, 10, T_PSHOT);') });
+  up('thorns', 'THORNS.EXE', '+ GAME.explode(p, 80, 14 * tier) : getting hit detonates', { weight: .6, apply: () => hook('ply.hurt', 'hurt', 'GAME.explode(p.x, p.y, 80, 14 * GAME.tier(), T_PSHOT);') });
   up('bullettime', 'BULLET_TIME', '+ GAME.slow(1.5) : time slows when hit', { weight: .6, apply: () => hook('ply.hurt', 'hurt', 'GAME.slow(1.5);') });
   up('leech', 'LIFESTEAL', 'LEECH+=.006 : kills may heal', { max: 2, apply: () => tune('ply.kill', 'LEECH', v => v + .006) });
-  up('bits', 'BIT_DOUBLER', 'BITS*=2 : double bit drops', { max: 2, weight: .8, apply: () => tune('ply.kill', 'BITS', v => v * 2) });
-  up('cascade', 'CASCADE', '+ 3x GAME.shoot(homing) : kills spawn seekers', { weight: .5, apply: () => hook('ply.kill', 'kill', 'for (let i = 0; i < 3; i++) GAME.shoot(e.x, e.y, Math.cos(i * 2.1) * 200, Math.sin(i * 2.1) * 200, { team: T_PSHOT, dmg: 1, homing: 7 });') });
+  up('bits', 'DEFRAG.EXE', 'DEFRAG=0 -> 450 : every 450 bits heals 1', { max: 2, weight: .8, apply: () => tune('ply.bit', 'DEFRAG', v => v ? Math.round(v * .65) : 450) });
+  up('cascade', 'CASCADE', '+ 3x GAME.shoot(homing) : kills spawn seekers', { weight: .5, apply: () => hook('ply.kill', 'kill', 'for (let i = 0; i < 3; i++) GAME.shoot(e.x, e.y, Math.cos(i * 2.1) * 200, Math.sin(i * 2.1) * 200, { team: T_PSHOT, dmg: GAME.tier(), homing: 7 });') });
 
   // --- bugs (injected by mutators / bosses; cured on kill) ---
   bug('b_invert', '0xDEAD: INVERT_AXIS', 'mx = IN.mvx -> mx = -IN.mvx', { apply: () => LIVE.patch('ply.move', 'let mx = IN.mvx, my = IN.mvy;', 'let mx = -IN.mvx, my = -IN.mvy;') });
