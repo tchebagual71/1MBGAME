@@ -36,6 +36,8 @@ const CRT = process.argv[2] === '1';
   await ev(`__T.UI.banner('SECTOR 2','HEAP OVERFLOW  //  4 WAVES + BOSS')`); await wait(.12); await shot('09-banner-in'); await wait(.6); await shot('09b-banner');
   await ev(`__T.BUS.emit('panic', new Error('x is not a function'), {name:'wpn.fire'})`); await wait(.5); await shot('10-panic-toast');
   await ev(`__T.S.boss=null; __T.PATCH.cure('uiScramble')`);
+  { const r = await ev(`[__T.LIVE.src['ui.digits'].includes('SCRAMBLE = 0'), __T.LIVE.src['ui.hudpost'].includes('MIRROR = 0, JITTER = 0'), __T.LIVE.fn['ui.digits'](42,8)]`);
+    if (!r[0] || !r[1] || r[2] !== '00000042') { fails++; console.log('FAIL bug revert', r); } else console.log('ok UI bugs reverted cleanly'); }
   await ev(`__T.IN.touch=true; Object.assign(__T.IN.sticks[0],{on:true,ox:80,oy:200,x:98,y:190}); Object.assign(__T.IN.sticks[1],{on:true,ox:400,oy:190,x:385,y:170});`); await wait(.3); await shot('11-touch-sticks');
   await ev(`__T.IN.touch=false; __T.IN.sticks[0].on=false; __T.IN.sticks[1].on=false; __T.S.player.hp=5`);
   // patch scene

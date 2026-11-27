@@ -23,27 +23,27 @@ const AU = (() => {
 
   // ---------------------------------------------------------------- instruments (w: 1 saw, 2 pulse, 3 fm)
   const LEADS = {
-    saw2: { w: 1, d2: .85, det: .12, cut: 2300, env: 2.2, fd: .22, k: 1.2, a: .006, d: .3, s: .72, r: .16, vib: .2, vr: 5.5, glide: .04, v: .2, sd: .32, sv: .22 },
-    chip: { w: 2, duty: .25, pwm: .1, pr: .6, cut: 6500, env: .6, fd: .2, k: 1.7, a: .003, d: .16, s: .62, r: .07, vib: .14, vr: 6.2, glide: .02, v: .15, sd: .28, sv: .14 },
+    saw2: { w: 1, d2: .85, det: .12, cut: 3400, env: 2, fd: .22, k: 1.2, a: .006, d: .3, s: .72, r: .16, vib: .2, vr: 5.5, glide: .04, v: .25, sd: .32, sv: .22 },
+    chip: { w: 2, duty: .25, pwm: .1, pr: .6, cut: 6500, env: .6, fd: .2, k: 1.7, a: .003, d: .16, s: .62, r: .07, vib: .14, vr: 6.2, glide: .02, v: .18, sd: .28, sv: .14 },
     fm: { w: 3, ratio: 2, fi: 1.7, fi0: .3, cut: 7000, env: .3, fd: .25, k: 1.8, a: .004, d: .35, s: .55, r: .18, vib: .16, vr: 5, glide: .03, v: .21, sd: .3, sv: .24 },
     soft: { w: 2, duty: .5, pwm: .05, pr: .3, cut: 1100, env: 1.2, fd: .3, k: 1.6, a: .03, d: .6, s: .7, r: .45, vib: .18, vr: 4.5, glide: .06, v: .22, sd: .4, sv: .4 }
   };
   const BASSES = {
-    saw: { w: 1, sub: .6, cut: 300, env: 5, fd: .13, k: .9, a: .003, d: .2, s: .5, r: .06, glide: 0, v: .34 },
+    saw: { w: 1, sub: .4, cut: 340, env: 5, fd: .13, k: .9, a: .003, d: .2, s: .5, r: .06, glide: 0, v: .29 },
     chip: { w: 2, duty: .5, cut: 1600, env: 1.4, fd: .1, k: 1.6, a: .002, d: .14, s: .6, r: .04, glide: 0, v: .23 },
-    reese: { w: 1, d2: 1, det: .22, sub: .5, cut: 380, env: 2.5, fd: .3, k: 1.1, a: .004, d: .4, s: .8, r: .08, glide: .03, v: .27 },
-    deep: { w: 1, sub: 1, cut: 180, env: 1.5, fd: .3, k: 1.6, a: .02, d: .8, s: .7, r: .3, glide: .05, v: .38 }
+    reese: { w: 1, d2: 1, det: .22, sub: .25, cut: 450, env: 2.5, fd: .3, k: 1.1, a: .004, d: .4, s: .8, r: .08, glide: .03, v: .22 },
+    deep: { w: 1, sub: .8, cut: 200, env: 1.5, fd: .3, k: 1.6, a: .02, d: .8, s: .7, r: .3, glide: .05, v: .38 }
   };
   const ARPS = {
-    sq: { w: 2, duty: .25, cut: 4200, env: 1.2, fd: .06, k: 1.5, a: .001, d: .09, s: 0, r: .03, v: .14, sd: .5, sv: .15 },
+    sq: { w: 2, duty: .25, cut: 5200, env: 1.2, fd: .06, k: 1.5, a: .001, d: .09, s: 0, r: .03, v: .14, sd: .5, sv: .15 },
     sq8: { w: 2, duty: .125, cut: 7000, env: .5, fd: .05, k: 1.7, a: .001, d: .07, s: 0, r: .03, v: .13, sd: .4, sv: .1 },
     saw: { w: 1, cut: 1300, env: 3.5, fd: .08, k: 1, a: .001, d: .12, s: 0, r: .03, v: .15, sd: .45, sv: .15 },
     bell: { w: 3, ratio: 3.5, fi: 1.8, fi0: .05, cut: 9000, env: 0, fd: .15, k: 2, a: .001, d: .35, s: 0, r: .12, v: .13, sd: .45, sv: .35 }
   };
   const PADS = {
-    warm: { cut: 1250, det: .007, lfo: .25, v: .055, sv: .5, sd: .08 },
-    bright: { cut: 2600, det: .009, lfo: .3, v: .045, sv: .45, sd: .1 },
-    dark: { cut: 650, det: .011, lfo: .35, v: .065, sv: .55, sd: .05 }
+    warm: { cut: 1700, det: .007, lfo: .25, v: .055, sv: .5, sd: .08 },
+    bright: { cut: 3400, det: .009, lfo: .3, v: .045, sv: .45, sd: .1 },
+    dark: { cut: 900, det: .011, lfo: .35, v: .065, sv: .55, sd: .05 }
   };
   const KITS = [{ k: 'k0', s: 's0' }, { k: 'k1', s: 's0' }, { k: 'k2', s: 's1' }];
 
@@ -276,7 +276,7 @@ m.tone = TONE;`);
         b[i] = Math.tanh(Math.sin(TAU * ph) * Math.exp(-t * ar) * drive) + click * nrand() * Math.exp(-t * 600); }
       return norm(b, sr); };
     D.k0 = kick(.42, 170, 46, 36, 7, 1.8, .22);
-    D.k1 = kick(.75, 130, 38, 20, 3.6, 2.6, .14);
+    D.k1 = kick(.6, 130, 40, 20, 4.6, 2.6, .16);
     D.k2 = kick(.22, 260, 55, 55, 13, 5, .1);
     D.tom = kick(.4, 75, 105, 15, 9, 1.3, .04);
     { const b = buf(.32), n = buf(.32); let ph = 0;
@@ -361,14 +361,14 @@ m.tone = TONE;`);
     function drums(m) {
       if (!ready) return;
       const K = KITS[song.kit | 0], gd = lg.drum, gh = lg.hat * (st & 1 ? .65 : 1);
-      if (m & 1) hit(DR[K.k], .82 * gd, 0, 0, .04, 1);
-      if (m & 2) hit(DR[K.s], .46 * gd, .05, .08, .25, 2);
+      if (m & 1) hit(DR[K.k], .72 * gd, 0, 0, .04, 1);
+      if (m & 2) hit(DR[K.s], .5 * gd, .05, .08, .25, 2);
       if (m & 128) hit(DR[K.s], .12 * gd, .2, .05, .1, 2);
-      if (m & 16) hit(DR.clap, .36 * gd, -.12, .1, .3, 3);
-      if (m & 4) hit(DR.hat, .15 * gh, .28, .02, 0, 4);
-      if (m & 8) hit(DR.ohat, .12 * lg.hat, .28, .04, .05, 4);
+      if (m & 16) hit(DR.clap, .42 * gd, -.12, .1, .3, 3);
+      if (m & 4) hit(DR.hat, .34 * gh, .28, .02, 0, 4);
+      if (m & 8) hit(DR.ohat, .22 * lg.hat, .28, .04, .05, 4);
       if (m & 32) hit(DR.tom, .38 * gd, -.5 + .12 * (st & 7), .05, .15, 5, 1.4 - .07 * (st & 7));
-      if (m & 64) hit(DR.crash, .2 * gd, -.25, .05, .2, 6);
+      if (m & 64) hit(DR.crash, .3 * gd, -.25, .05, .2, 6);
     }
 
     function doStep(off) {
@@ -538,7 +538,7 @@ m.tone = TONE;`);
         // master: DC block, tone lowpass, crusher, gain, soft clip
         const lpOn = tone < .999, la = 1 - Math.exp(-TAU * 20000 * Math.pow(tone, 1.6) / sr);
         const bits = Math.max(2, Math.min(16, +mst.bits || 16)), hold = Math.max(1, Math.min(16, mst.hold | 0 || 1)), crush = bits < 16 || hold > 1, q = Math.pow(2, bits - 1);
-        const MG = .78 * (sg.vol || 1);
+        const MG = .64 * (sg.vol || 1);
         for (let j = 0; j < BLK; j++) {
           let l = bL[j], r = bR[j];
           dcL = l - dxL + .9975 * dcL; dxL = l; l = dcL;
@@ -572,27 +572,29 @@ m.tone = TONE;`);
     const s0 = Math.round((o.t || 0) * sr), n = Math.min(b.length - s0, Math.round(o.d * sr));
     const f0 = o.f, lr = Math.log((o.e || o.f) / f0), w = o.w || 'sq', v = o.v == null ? 1 : o.v, a = Math.max(.0015, o.a || 0), p = o.p == null ? 1 : o.p, duty = o.duty || .5;
     const ft = o.lp ? 0 : o.bp ? 1 : o.hp ? 2 : -1, fa = o.lp || o.bp || o.hp, fz = o.lp2 || o.bp2 || o.hp2 || fa, K = 1 / (o.q || .8);
-    let ph = 0, mph = 0, hold = 1, hv = 0, i1 = 0, i2 = 0;
+    const wt = { sq: 0, saw: 1, tri: 2, fm: 3, sin: 4, nz: 5 }[w], cr = o.crush || 0, fmr = o.fm || 2, isr = 1 / sr;
+    let ph = 0, mph = 0, hold = 1, hv = 0, i1 = 0, i2 = 0, f = f0, env = 0, de = 0, a1 = 0, a2 = 0, a3 = 0, fi = 0, df = 0;
     for (let i = 0; i < n; i++) {
-      const x = i / n, t = i / sr;
-      let f = f0 * Math.exp(lr * x);
-      if (o.arp) f *= Math.pow(2, o.arp[((t * o.ar) | 0) % o.arp.length] / 12);
-      if (o.vd) f *= Math.pow(2, o.vd * Math.sin(TAU * o.vr * t) / 12);
+      if ((i & 15) === 0) {                        // control rate: pitch, filter, envelope
+        const x = i / n, t = i / sr, x2 = Math.min(1, (i + 16) / n), t2 = (i + 16) / sr;
+        f = f0 * Math.exp(lr * x);
+        if (o.arp) f *= Math.pow(2, o.arp[((t * o.ar) | 0) % o.arp.length] / 12);
+        if (o.vd) f *= Math.pow(2, o.vd * Math.sin(TAU * o.vr * t) / 12);
+        env = Math.min(1, t / a) * Math.pow(1 - x, p) * v; de = (Math.min(1, t2 / a) * Math.pow(1 - x2, p) * v - env) / 16;
+        fi = (o.fi || 2) * (1 - x); df = f * isr;
+        if (ft >= 0) { const fc = Math.min(sr * .45, fa * Math.pow(fz / fa, x)), G = Math.tan(PI * fc / sr); a1 = 1 / (1 + G * (G + K)); a2 = G * a1; a3 = G * a2; }
+      }
       let y;
-      if (w === 'nz') { hold += f / sr; if (hold >= 1) { hold -= Math.floor(hold); hv = nrand(); } y = hv; }
+      if (wt === 5) { hold += df; if (hold >= 1) { hold -= Math.floor(hold); hv = nrand(); } y = hv; }
       else {
-        ph += f / sr; ph -= Math.floor(ph);
-        if (w === 'sq') y = ph < duty ? 1 : -1; else if (w === 'saw') y = 2 * ph - 1; else if (w === 'tri') y = 4 * Math.abs(ph - .5) - 1;
-        else if (w === 'fm') { mph += f * (o.fm || 2) / sr; y = Math.sin(TAU * ph + (o.fi || 2) * (1 - x) * Math.sin(TAU * mph)); }
+        ph += df; if (ph >= 1) ph -= Math.floor(ph);
+        if (wt === 0) y = ph < duty ? 1 : -1; else if (wt === 1) y = 2 * ph - 1; else if (wt === 2) y = 4 * Math.abs(ph - .5) - 1;
+        else if (wt === 3) { mph += df * fmr; if (mph >= 1) mph -= Math.floor(mph); y = Math.sin(TAU * ph + fi * Math.sin(TAU * mph)); }
         else y = Math.sin(TAU * ph);
       }
-      if (o.crush) y = Math.round(y * o.crush) / o.crush;
-      if (ft >= 0) {
-        const fc = Math.min(sr * .45, fa * Math.pow(fz / fa, x)), G = Math.tan(PI * fc / sr), a1 = 1 / (1 + G * (G + K)), a2 = G * a1, a3 = G * a2;
-        const v3 = y - i2, v1 = a1 * i1 + a2 * v3, v2 = i2 + a2 * i1 + a3 * v3; i1 = 2 * v1 - i1; i2 = 2 * v2 - i2;
-        y = ft === 0 ? v2 : ft === 1 ? v1 * K : y - K * v1 - v2;
-      }
-      b[s0 + i] += y * Math.min(1, t / a) * Math.pow(1 - x, p) * v;
+      if (cr) y = Math.round(y * cr) / cr;
+      if (ft >= 0) { const v3 = y - i2, v1 = a1 * i1 + a2 * v3, v2 = i2 + a2 * i1 + a3 * v3; i1 = 2 * v1 - i1; i2 = 2 * v2 - i2; y = ft === 0 ? v2 : ft === 1 ? v1 * K : y - K * v1 - v2; }
+      b[s0 + i] += y * env; env += de;
     }
   }
   const NT = s => 523.25 * Math.pow(2, s / 12);       // semitones above C5

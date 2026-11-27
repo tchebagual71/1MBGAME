@@ -792,7 +792,7 @@ const UI = (() => {
       panel(188, 56, 284, 118, '', K.line, .7);
       const cr = WN.credits, sp = t * 14, s0 = Math.floor(sp / 10), fy = sp % 10;
       for (let i = -1; i < 12; i++) {
-        const k = s0 + i; if (k < 0) continue; const ln = cr[k % cr.length], y = 60 + i * 10 - fy + 100;
+        const k = s0 + i; if (k < 0) continue; const ln = cr[k % cr.length], y = 60 + i * 10 - fy + 40;
         if (y < 58 || y > 164 || !ln[0]) continue; const edge = clamp(Math.min(y - 58, 164 - y) / 14, 0, 1);
         txc(ln[0], 330, y, GFX.scale(ln[1], .25 + .75 * edge));
       }

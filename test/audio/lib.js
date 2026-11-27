@@ -51,7 +51,7 @@ window.AL = (() => {
     const re = new Float64Array(N), im = new Float64Array(N);
     for (let x = 0; x < W; x++) { const o = x * hop; for (let i = 0; i < N; i++) { re[i] = (L[o + i] || 0) * (.5 - .5 * Math.cos(2 * Math.PI * i / N)); im[i] = 0; } fft(re, im);
       for (let y = 0; y < Hs; y++) { const f = 30 * Math.pow(16000 / 30, 1 - y / Hs), k = Math.min(N / 2 - 1, Math.round(f * N / sr)); const p = re[k] * re[k] + im[k] * im[k];
-        const db = 10 * Math.log10(p + 1e-12), v = Math.max(0, Math.min(1, (db + 40) / 70)); const i = (y * W + x) * 4;
+        const db = 10 * Math.log10(p + 1e-12) - 54, v = Math.max(0, Math.min(1, (db + 85) / 80)); const i = (y * W + x) * 4;
         img.data[i] = 255 * Math.min(1, v * 2); img.data[i + 1] = 255 * Math.max(0, v * 2 - 1); img.data[i + 2] = 255 * (v < .5 ? v : 1 - v); img.data[i + 3] = 255; } }
     g.fillStyle = '#000'; g.fillRect(0, 0, W, c.height); g.putImageData(img, 0, 16);
     g.fillStyle = '#fff'; g.font = '12px monospace'; g.fillText(title, 4, 12);
