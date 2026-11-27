@@ -1,7 +1,8 @@
 // ===== 50-dir.js : DIR — campaign director: sectors, composed wave scripts, bosses =====
 const DIR = (() => {
   const X0 = 8, X1 = 472, Y0 = 20, Y1 = 262, CX = 240, CY = 141;
-  const HEAL = 2, BREATHER = 1.6, INTRO_T = 3.2, WARN_T = 2.8, CLEAR_HOLD = 1.0, STALL_T = 45;
+  const REPAIR_SECTORS = 1;   // BOOT SECTOR self-test: +1 hp per cleared wave (teaching sector)
+  const HEAL = 2, BREATHER = 1.3, INTRO_T = 2.8, WARN_T = 2.5, CLEAR_HOLD = .8, STALL_T = 45;
 
   // ---- lazy, guarded access to sibling modules ----
   const banner = (a, b, s) => { if (typeof UI !== 'undefined' && UI.banner) UI.banner(a, b, s); };
@@ -35,7 +36,7 @@ const DIR = (() => {
   const BASE = 1, PER_SECTOR = .34, PER_WAVE = .07;
   return BASE + sec * PER_SECTOR + Math.min(wave, 4) * PER_WAVE;`);
   LIVE.def('dir.budget', 'n,type,sec,wave', `
-  const MUL = 1, GROW = .05, PER_WAVE = .03, FIXED = 'turret mine sniper';
+  const MUL = 1, GROW = .2, PER_WAVE = .05, FIXED = 'turret mine sniper';
   if (FIXED.includes(type)) return n;
   return Math.max(1, Math.round(n * MUL * (1 + GROW * sec + PER_WAVE * wave)));`);
   LIVE.def('dir.spawn', 'type,x,y,o', `
@@ -103,8 +104,8 @@ const DIR = (() => {
     { name: 'BOOT SECTOR', sub: 'POWER-ON SELF TEST', fx: ['plasma', 'copper'], music: 's0', palette: [rgb(80, 230, 255), rgb(255, 160, 60)], boss: 'boot', waves: [
       { name: 'POST.SWARM', s: [[0, 'ring', 'gnat', 6, 120], [4, 'edge', 'gnat', 7, 'L'], [8, 'edge', 'gnat', 7, 'R'], [12, 'arc', 'drifter', 2], [15, 'stream', 'gnat', 8, '?6'], [21, 'corners', 'drifter', 4], [25, 'ring', 'gnat', 8, 130]] },
       { name: 'IRQ.TURRETS', s: [[0, 'grid', 'turret', 2], [1, 'pincer', 'gnat', 10], [7, 'stream', 'drifter', 4, '?8'], [12, 'ring', 'gnat', 10, 120], [18, 'grid', 'turret', 2], [20, 'edge', 'gnat', 10, 'B'], [26, 'arc', 'drifter', 4]] },
-      { name: 'BOUNCE.LOOP', s: [[0, 'corners', 'drifter', 4], [5, 'trickle', 'gnat', 12, 14], [8, 'line', 'drifter', 4], [14, 'grid', 'turret', 3], [18, 'pincer', 'gnat', 12], [25, 'escort', 'drifter', 6, 'gnat']] },
-      { name: 'POST.FAIL', s: [[0, 'grid', 'turret', 3], [1, 'ring', 'gnat', 10, 110], [6, 'stream', 'drifter', 6, '?10'], [10, 'pincer', 'gnat', 14], [16, 'escort', 'drifter', 6, 'gnat'], [20, 'edge', 'gnat', 12, 'T'], [24, 'corners', 'drifter', 4], [28, 'ring', 'gnat', 12, 130]] }] },
+      { name: 'BOUNCE.LOOP', s: [[0, 'corners', 'drifter', 4], [5, 'trickle', 'gnat', 12, 14], [8, 'line', 'drifter', 4], [14, 'grid', 'turret', 2], [18, 'pincer', 'gnat', 12], [25, 'escort', 'drifter', 6, 'gnat']] },
+      { name: 'POST.FAIL', s: [[0, 'grid', 'turret', 2], [1, 'ring', 'gnat', 10, 110], [6, 'stream', 'drifter', 6, '?10'], [10, 'pincer', 'gnat', 14], [16, 'escort', 'drifter', 6, 'gnat'], [20, 'edge', 'gnat', 12, 'T'], [24, 'corners', 'drifter', 4], [28, 'ring', 'gnat', 12, 130]] }] },
     { name: 'HEAP', sub: 'DYNAMIC ALLOCATION // NO GUARD PAGES', fx: ['metaballs', 'lens'], music: 's1', palette: [rgb(120, 255, 140), rgb(255, 90, 200)], boss: 'malloc', waves: [
       { name: 'MALLOC(N)', s: [[0, 'edge', 'worm', 2, '?'], [3, 'ring', 'gnat', 10, 120], [9, 'arc', 'splitter', 2], [14, 'stream', 'gnat', 10, '?8'], [19, 'corners', 'drifter', 4], [24, 'arc', 'worm', 2], [27, 'pincer', 'gnat', 12]] },
       { name: 'FRAGMENT', s: [[0, 'corners', 'splitter', 4], [6, 'trickle', 'gnat', 14, 14], [10, 'grid', 'turret', 3], [15, 'edge', 'worm', 3, '?'], [22, 'arc', 'splitter', 3], [26, 'ring', 'gnat', 12, 125]] },
@@ -145,8 +146,9 @@ const DIR = (() => {
     fan(x, y, a, n, spread, spd, c, r) { for (let i = 0; i < n; i++) K.shot(x, y, a + (n > 1 ? (i / (n - 1) - .5) * spread : 0), spd, c, r); },
     // wall of bullets from an arena edge with a gap of width gapW around coordinate gap
     wall(side, gap, gapW, spd, c, step) { step = step || 13;
-      if (side === 'T' || side === 'B') { for (let x = X0 + 5; x < X1; x += step) if (Math.abs(x - gap) > gapW / 2) K.shot(x, side === 'T' ? Y0 + 2 : Y1 - 2, side === 'T' ? PI / 2 : -PI / 2, spd, c, 3, 6); }
-      else for (let y = Y0 + 5; y < Y1; y += step) if (Math.abs(y - gap) > gapW / 2) K.shot(side === 'L' ? X0 + 2 : X1 - 2, y, side === 'L' ? 0 : PI, spd, c, 3, 9); },
+      // spawned ~16px outside the edge so the wall visibly slides in (spawning on the edge hit edge-huggers on frame 1)
+      if (side === 'T' || side === 'B') { for (let x = X0 + 5; x < X1; x += step) if (Math.abs(x - gap) > gapW / 2) K.shot(x, side === 'T' ? Y0 - 14 : Y1 + 14, side === 'T' ? PI / 2 : -PI / 2, spd, c, 3, 6.5); }
+      else for (let y = Y0 + 5; y < Y1; y += step) if (Math.abs(y - gap) > gapW / 2) K.shot(side === 'L' ? X0 - 14 : X1 + 14, y, side === 'L' ? 0 : PI, spd, c, 3, 10); },
     // telegraphed beam: {x,y,a,len,warn,dur,spin,c,owner,ox,oy,upd}
     beam(o) { const h = Object.assign({ kind: 'beam', t: 0, x: CX, y: CY, a: 0, len: 560, warn: 1, dur: 3, spin: 0, c: C.red, w: 3, et: 0, ox: 0, oy: 0 }, o); HZ.push(h); return h; },
     // line sweeping across the arena with a gap: vert=true -> vertical line moving in x
@@ -274,7 +276,7 @@ const DIR = (() => {
   function fwd(e, d, src, k) { const b = e.parent; if (!b || b.dead) return false; e.flash = .08; if (b.intro > 0 || b.inv > 0 || k <= 0) { block(e, src); return false; } ENT.damage(b, d * k, src); return false; }
 
   // ---------- 0: BOOTSTRAP — shielded core, rotating plates block shots by angle ----------
-  defBoss('boot', { name: 'BOOTSTRAP', r: 30, hp: 360, score: 5000, ph: [.62, .3], c: rgb(255, 170, 60), home: [CX, 72], fxp: ['tunnel', 'tunnel', 'tunnel'],
+  defBoss('boot', { name: 'BOOTSTRAP', r: 30, hp: 230, score: 5000, ph: [.62, .3], c: rgb(255, 170, 60), home: [CX, 72], fxp: ['tunnel', 'tunnel', 'tunnel'],
     phn: ['ROTATING SHIELD', 'COUNTER-SPIN // ADDS', 'VENTING CORE'],
     init(e) { e.rot = 0; e.pw = .52; e.open = 0; },
     idle(e, dt) { e.rot += dt; },
@@ -301,9 +303,9 @@ const DIR = (() => {
       if (e.vent && ((S.t * 8) | 0) & 1) GFX.textC('VENT', e.x, e.y - 58, rgb(255, 255, 120));
     } });
   LIVE.def('boss.boot', 'e,p,dt,k', `
-  const SPIRAL_RATE = .14, ARMS = 2, SPIN = .37, SPD = 62;
-  const FAN_EVERY = 2.6, FAN_N = 5, FAN_SPREAD = .55, FAN_SPD = 82;
-  const RING_EVERY = 2.3, RING_N = 20, RING_SPD = 56, GAP = 4, ADD_EVERY = 7.5;
+  const SPIRAL_RATE = .18, ARMS = 2, SPIN = .37, SPD = 56;
+  const FAN_EVERY = 2.8, FAN_N = 4, FAN_SPREAD = .55, FAN_SPD = 78;
+  const RING_EVERY = 2.6, RING_N = 18, RING_SPD = 54, GAP = 5, ADD_EVERY = 8;
   const C1 = rgb(255, 170, 60), C2 = rgb(90, 220, 255);
   if (e.ph === 0) {
     if (k.cd(e, 'sp', SPIRAL_RATE)) { e.sa = (e.sa || 0) + SPIN; for (let i = 0; i < ARMS; i++) k.shot(e.x, e.y, e.sa + i * TAU / ARMS, SPD, C1); }
@@ -353,14 +355,14 @@ const DIR = (() => {
   LIVE.def('boss.malloc', 'e,p,dt,k', `
   const WALL_EVERY = 3.4, WALL_SPD = 52, WALL_GAP = 60;
   const RING_EVERY = 2.6, RING_N = 12, RING_SPD = 58;
-  const FRAG_EVERY = 1.7, FRAG_SPD = 75, SPIN = .45;
+  const FRAG_EVERY = 2, FRAG_SPD = 72, SPIN = .45;
   const C1 = rgb(120, 255, 140), C2 = rgb(255, 90, 200);
   if (e.ph === 0) {
     if (k.cd(e, 'wall', WALL_EVERY, .5)) k.wall('T', rndr(40, 440), WALL_GAP, WALL_SPD, C1);
     if (k.cd(e, 'ring', RING_EVERY)) k.ring(e.x, e.y, RING_N, RING_SPD, rnd() * TAU, C2);
   } else if (e.ph === 1) {
     if (k.cd(e, 'wall', WALL_EVERY * 1.15)) { e.ws = !e.ws; k.wall(e.ws ? 'L' : 'R', rndr(50, 230), WALL_GAP - 6, WALL_SPD * .9, C1); }
-    if (k.cd(e, 'sp', .22)) { e.sa = (e.sa || 0) + SPIN; k.shot(e.x, e.y, e.sa, RING_SPD, C2); k.shot(e.x, e.y, e.sa + PI, RING_SPD, C2); }
+    if (k.cd(e, 'sp', .26)) { e.sa = (e.sa || 0) + SPIN; k.shot(e.x, e.y, e.sa, RING_SPD, C2); k.shot(e.x, e.y, e.sa + PI, RING_SPD, C2); }
     for (const f of e.parts) if (!f.dead && k.cd(f, 'f', FRAG_EVERY, rnd() * FRAG_EVERY)) k.shot(f.x, f.y, k.aim(f, p), FRAG_SPD, C2);
   } else {
     if (k.cd(e, 'ring', RING_EVERY * .9)) { const a = rnd() * TAU; k.ring(e.x, e.y, 16, RING_SPD, a, C1, 3, k.aim(e, p)); e.echo = .5; e.ea = a + PI / 16; }
@@ -371,13 +373,13 @@ const DIR = (() => {
 
   // ---------- 2: STACK SMASHER — segmented serpent, armoured head, weak top-of-stack ----------
   partDef('boss.seg', { r: 8,
-    hurt(e, d, src) { const b = e.parent; return fwd(e, d, src, b && e === b.parts[b.parts.length - 1] ? 1.5 : .6); },
+    hurt(e, d, src) { const b = e.parent; return fwd(e, d, src, b && e === b.parts[b.parts.length - 1] ? 1.5 : .75); },
     draw(e) { const b = e.parent; if (!b) return; const tail = e === b.parts[b.parts.length - 1], s = e.sz || 1;
       const c = col(e, tail ? rgb(255, 230, 80) : (e.idx & 1 ? rgb(255, 80, 80) : rgb(255, 140, 70)));
       GFX.fill(POLY.hex, e.x, e.y, e.a || 0, 7 * s, rgb(50, 12, 10)); ol(POLY.hex, e.x, e.y, e.a || 0, 7 * s, c);
       GFX.glow(e.x, e.y, (tail ? 13 : 7) * s, c, tail ? .7 + S.beat * .3 : .35);
       if (tail && ((S.t * 4) | 0) & 1) GFX.textC('TOS', e.x, e.y - 16, rgb(255, 230, 80)); } });
-  defBoss('stack', { name: 'STACK SMASHER', r: 15, hp: 760, score: 14000, ph: [.66, .33], c: rgb(255, 80, 80), infect: true, home: [CX, 80], fxp: ['fire', 'fire', 'kefrens'],
+  defBoss('stack', { name: 'STACK SMASHER', r: 15, hp: 1400, score: 14000, ph: [.66, .33], c: rgb(255, 80, 80), infect: true, home: [CX, 80], fxp: ['fire', 'fire', 'kefrens'],
     phn: ['PUSH PUSH PUSH', 'POP // BUFFER OVERRUN', 'RET2LIBC CHARGE'],
     init(e) { e.ha = PI / 2; e.tx = CX; e.ty = CY; e.trail = []; e.spd = 72; e.charge = 0;
       for (let i = 0; i < 14; i++) { const q = ENT.spawn('boss.seg', e.x, e.y - i * 11, { parent: e, idx: i, sz: 1 - i * .025 }); if (q) e.parts.push(q); } },
@@ -389,7 +391,7 @@ const DIR = (() => {
         const sp = e.spd * [1, 1.12, 1.3][e.ph]; e.x += Math.cos(e.ha) * sp * dt; e.y += Math.sin(e.ha) * sp * dt; }
       if (e.x < X0 + 16 || e.x > X1 - 16) { e.ha = PI - e.ha; e.charge = Math.min(e.charge, 0); } if (e.y < Y0 + 16 || e.y > Y1 - 16) { e.ha = -e.ha; e.charge = Math.min(e.charge, 0); }
       e.x = clamp(e.x, X0 + 16, X1 - 16); e.y = clamp(e.y, Y0 + 16, Y1 - 16); trail(e); },
-    hurt() { return .35; },
+    hurt() { return .5; },
     onPhase(e) { for (let i = 0; i < 4 && e.parts.length > 4; i++) { const q = e.parts.pop(); q.dead = true; if (typeof GAME !== 'undefined') GAME.explode(q.x, q.y, 24, 0, T_PSHOT); GFX.ring(q.x, q.y, 4, 40, rgb(255, 230, 80), .4); } },
     draw(e) {
       const c = col(e, rgb(255, 80, 80)), b = S.beat, a = e.ha, ca = Math.cos(a), sa = Math.sin(a), ch = e.charge > .7;
@@ -406,7 +408,7 @@ const DIR = (() => {
     const n = T.length / 2; for (let i = 0; i < e.parts.length; i++) { const q = e.parts[i], j = Math.max(0, n - 1 - (i + 1) * 6) * 2; const tx = T[j] != null ? T[j] : e.x, ty = T[j + 1] != null ? T[j + 1] : e.y;
       q.a = Math.atan2(ty - q.y, tx - q.x); q.x = tx; q.y = ty; } }
   LIVE.def('boss.stack', 'e,p,dt,k', `
-  const RIPPLE = .5, RIP_SPD = 52, FAN_EVERY = 3, FAN_N = 5, FAN_SPD = 80;
+  const RIPPLE = .36, RIP_SPD = 54, FAN_EVERY = 2.4, FAN_N = 5, FAN_SPD = 84;
   const PUSH_EVERY = 2.8, RING_EVERY = 3.6, CHARGE_EVERY = 4.6, TELEGRAPH = .9;
   const C1 = rgb(255, 120, 70), C2 = rgb(255, 230, 90);
   const segs = e.parts, n = segs.length;
@@ -425,7 +427,7 @@ const DIR = (() => {
   }`);
 
   // ---------- 3: IRQ CLOCK — clock face firing on the beat, hands are sweeping beams ----------
-  defBoss('irq', { name: 'IRQ CLOCK', r: 32, hp: 1500, score: 20000, ph: [.62, .3], c: rgb(255, 230, 80), infect: true, home: [CX, 82], fxp: ['rotozoom', 'rotozoom', 'copper'],
+  defBoss('irq', { name: 'IRQ CLOCK', r: 32, hp: 3400, score: 20000, ph: [.62, .3], c: rgb(255, 230, 80), infect: true, home: [CX, 82], fxp: ['rotozoom', 'rotozoom', 'copper'],
     phn: ['TIMER INTERRUPT', 'NMI // NON-MASKABLE', 'DOUBLE FAULT'],
     init(e) { e.vec = 0; e.tpx = 0; e.tp = 0; },
     move(e, p, dt) {
@@ -448,7 +450,7 @@ const DIR = (() => {
       if (e.ph === 2) ol(POLY.oct, x, y, S.t, 52, GFX.scale(rgb(255, 60, 60), .6 + b * .4));
     } });
   LIVE.def('boss.irq', 'e,p,dt,k', `
-  const RING_N = 12, RING_SPD = 58, GAP = 3, EVERY_NTH_BEAT = 2;
+  const RING_N = 16, RING_SPD = 66, GAP = 3, EVERY_NTH_BEAT = 2;
   const BEAM_EVERY = 9, BEAM_WARN = 1.2, BEAM_DUR = 3.4, BEAM_SPIN = .3, BEAM_START = 1.25;
   const NMI_EVERY = 8, AIM_SPD = 85;
   const C1 = rgb(255, 230, 80), C2 = rgb(90, 170, 255), CB = rgb(255, 60, 60);
@@ -466,7 +468,7 @@ const DIR = (() => {
   }`);
 
   // ---------- 4: GARBAGE COLLECTOR — mark & sweep: marks burst, laser lines sweep with gaps ----------
-  defBoss('gc', { name: 'GARBAGE COLLECTOR', r: 18, hp: 2300, score: 28000, ph: [.62, .3], c: rgb(200, 120, 255), infect: true, home: [CX, 46], fxp: ['moire', 'moire', 'voxel'],
+  defBoss('gc', { name: 'GARBAGE COLLECTOR', r: 18, hp: 5000, score: 28000, ph: [.62, .3], c: rgb(200, 120, 255), infect: true, home: [CX, 46], fxp: ['moire', 'moire', 'voxel'],
     phn: ['MARK', 'SWEEP // COMPACT', 'STOP THE WORLD'],
     init(e) { e.dir = 1; },
     move(e, p, dt) { const sp = [55, 70, 40][e.ph]; e.x += e.dir * sp * dt; if (e.x > 400) e.dir = -1; if (e.x < 80) e.dir = 1; e.y = lerp(e.y, e.ph === 2 ? 70 : 46, dt); },
@@ -517,7 +519,7 @@ const DIR = (() => {
       GFX.textC('LOCKED', e.x, e.y - 36, rgb(160, 200, 255)); }
     else if (((S.t * 5) | 0) & 1) GFX.textC('OPEN', e.x, e.y - 34, rgb(255, 255, 120));
   }
-  defBoss('twin', { name: 'MUTEX & SEMAPHORE', r: 16, hp: 2600, score: 40000, ph: [.62, .3], c: rgb(70, 220, 255), infect: true, home: [CX - 150, 120], fxp: ['lens', 'lens', 'tunnel'],
+  defBoss('twin', { name: 'MUTEX & SEMAPHORE', r: 16, hp: 4400, score: 40000, ph: [.62, .3], c: rgb(70, 220, 255), infect: true, home: [CX - 150, 120], fxp: ['lens', 'lens', 'tunnel'],
     phn: ['MUTUAL EXCLUSION', 'LINKED // RACE CONDITION', 'DEADLOCK'],
     init(e) { e.th = PI; e.lock = 1; const q = ENT.spawn('boss.twinB', CX + 150, -30, { parent: e }); if (q) e.parts.push(q); },
     idle(e, dt) { const q = e.parts[0]; if (q) { q.x = lerp(q.x, CX + 150, 1 - Math.pow(.03, dt)); q.y = lerp(q.y, 120, 1 - Math.pow(.03, dt)); } },
@@ -529,13 +531,14 @@ const DIR = (() => {
       if (q) { const on = HZ.some(h => h.link && h.t >= h.warn); if (!on) GFX.bolt(e.x, e.y, q.x, q.y, GFX.scale(rgb(140, 120, 255), .5 + S.beat * .4), 5); }
       twinDraw(e, e.lock === 0, rgb(70, 220, 255), e); } });
   LIVE.def('boss.twin', 'e,p,dt,k', `
-  const SWAP_EVERY = 6, SP_RATE = .17, SP_SPD = 58, FAN_EVERY = 2.1, FAN_SPD = 82;
+  const SWAP_EVERY = 6, SP_RATE = .15, ARMS = 2, SP_SPD = 66, FAN_EVERY = 1.9, FAN_SPD = 96;
   const LINK_EVERY = 7.5, LINK_WARN = 1.3, LINK_DUR = 3.2, RING_EVERY = 2.8, WALL_EVERY = 5.5;
   const CA = rgb(70, 220, 255), CB = rgb(255, 70, 200), CL = rgb(200, 160, 255);
   const q = e.parts[0]; if (!q) return;
   if (k.cd(e, 'swap', SWAP_EVERY)) { e.lock ^= 1; AU.sfx('shield'); }
   const open = e.lock === 1 ? e : q, shut = e.lock === 1 ? q : e;
-  if (k.cd(e, 'sp', SP_RATE)) { e.sa = (e.sa || 0) + .41; k.shot(e.x, e.y, e.sa, SP_SPD, CA); k.shot(q.x, q.y, -e.sa, SP_SPD, CB); }
+  if (k.cd(e, 'sp', SP_RATE)) { e.sa = (e.sa || 0) + .41;
+    for (let i = 0; i < ARMS; i++) { k.shot(e.x, e.y, e.sa + i * TAU / ARMS, SP_SPD, CA); k.shot(q.x, q.y, -e.sa + i * TAU / ARMS, SP_SPD, CB); } }
   if (k.cd(e, 'fan', e.ph === 2 ? FAN_EVERY * .9 : FAN_EVERY)) k.fan(open.x, open.y, k.aim(open, p), e.ph === 2 ? 5 : 3, .5, FAN_SPD, open === e ? CA : CB);
   if (e.ph >= 1) {
     if (k.cd(e, 'link', LINK_EVERY, 1)) k.beam({ link: true, warn: LINK_WARN, dur: LINK_DUR, c: CL,
@@ -549,7 +552,7 @@ const DIR = (() => {
     apply() { if (typeof FX === 'undefined' || typeof FX.cur !== 'string') return false; const nm = 'fx.' + FX.cur, s = LIVE.src[nm]; if (!s) return false;
       const m = (s.match(/\b[A-Z][A-Z0-9_]*\s*=\s*\d*\.?\d+/g) || []).filter(t => { const v = +t.split('=')[1]; return v > 0 && v < 1e4; }); if (!m.length) return false;
       const t = pick(m), v = +t.split('=')[1], nv = v * 1.75 + (v < 1 ? .2 : 0); return LIVE.patch(nm, t, t.split('=')[0] + '=' + (Number.isInteger(v) ? Math.round(nv) : +nv.toFixed(3))); } });
-  defBoss('kernel', { name: 'KERNEL', r: 30, hp: 5600, score: 100000, ph: [.75, .5, .25], c: rgb(255, 255, 255), infect: true, final: true, home: [CX, 78], fxp: ['matrix', 'matrix', 'plasma', 'feedback'],
+  defBoss('kernel', { name: 'KERNEL', r: 30, hp: 17000, score: 100000, ph: [.75, .5, .25], c: rgb(255, 255, 255), infect: true, final: true, home: [CX, 78], fxp: ['matrix', 'matrix', 'plasma', 'feedback'],
     phn: ['SYSCALL', 'REWRITE // REVERTING YOU', 'SELF.MOD', 'KERNEL PANIC'],
     init(e) { e.eye = 0; e.code = (LIVE.src['boss.kernel'] || 'KERNEL').replace(/\s+/g, '').slice(0, 400); },
     move(e, p, dt) { const sp = [.35, .45, .5, .6][e.ph]; e.hx = CX + Math.sin(e.age * sp) * 110; e.hy = 78 + Math.sin(e.age * sp * 2) * 22;
@@ -587,8 +590,8 @@ const DIR = (() => {
     if (ok) { banner('RESTORED ' + ((PATCH.all[r.id] && PATCH.all[r.id].name) || r.id).toUpperCase(), 'RELINKED x' + ok, 1.6); sfx('cure'); }
   }
   LIVE.def('boss.kernel', 'e,p,dt,k', `
-  const SP_RATE = .16, ARMS = 3, SP_SPD = 68, FAN_EVERY = 2.4, FAN_SPD = 84;
-  const WALL_EVERY = 4.2, WALL_SPD = 50, GAP_W = 64, RING_EVERY = 3, SWAP_EVERY = 6.5;
+  const SP_RATE = .13, ARMS = 4, SP_SPD = 76, FAN_EVERY = 2.1, FAN_SPD = 98;
+  const WALL_EVERY = 3.6, WALL_SPD = 52, GAP_W = 62, RING_EVERY = 2.6, SWAP_EVERY = 6.5;
   const C = [rgb(80, 230, 255), rgb(255, 80, 220), rgb(120, 255, 140), rgb(255, 60, 70)][e.ph], CW = rgb(255, 255, 255);
   const FXS = ['matrix', 'plasma', 'tunnel', 'rotozoom', 'kefrens', 'moire', 'twister', 'fire'];
   if (e.ph === 0) {
@@ -602,14 +605,15 @@ const DIR = (() => {
     if (k.cd(e, 'swap', SWAP_EVERY)) { FX.set(pick(FXS), .25); FX.kick(1); S.glitch = Math.max(S.glitch, .4); }
     if (DIR.state.rev && (DIR.state.rev.t -= dt) <= 0) DIR.restoreUp();
   } else if (e.ph === 2) {
-    if (k.cd(e, 'sp', SP_RATE * 1.15)) { e.sa = (e.sa || 0) + (e.pt % 6 < 3 ? .27 : -.27); for (let i = 0; i < 4; i++) k.shot(e.x, e.y, e.sa + i * TAU / 4, SP_SPD * .95, C); }
+    if (k.cd(e, 'sp', SP_RATE * 1.15)) { e.sa = (e.sa || 0) + (e.pt % 6 < 3 ? .27 : -.27); for (let i = 0; i < ARMS + 1; i++) k.shot(e.x, e.y, e.sa + i * TAU / (ARMS + 1), SP_SPD * .95, C); }
     if (k.cd(e, 'fan', FAN_EVERY * 1.2)) k.fan(e.x, e.y, k.aim(e, p), 3, .3, FAN_SPD, CW);
     if (k.cd(e, 'mut', 14, 1) && k.count('mutator') < 1) k.add('mutator');
     if (k.cd(e, 'snipe', 12, 2) && k.count('sniper') < 2) k.add('sniper');
   } else {
     if (k.cd(e, 'sp', SP_RATE * 1.25)) { e.sa = (e.sa || 0) + .23; for (let i = 0; i < 2; i++) { k.shot(e.x, e.y, e.sa + i * PI, SP_SPD + 4, C); k.shot(e.x, e.y, -e.sa + i * PI + PI / 2, SP_SPD, CW); } }
-    if (k.cd(e, 'ring', RING_EVERY * 1.1)) k.ring(e.x, e.y, 16, 54, rnd() * TAU, C, 4, k.aim(e, p));
-    if (k.cd(e, 'wall', WALL_EVERY * 1.5, 2)) k.wall(pick(['L', 'R']), rndr(50, 230), GAP_W + 6, WALL_SPD * .9, CW);
+    if (k.cd(e, 'ring', RING_EVERY)) k.ring(e.x, e.y, 20, 60, rnd() * TAU, C, 4, k.aim(e, p));
+    if (k.cd(e, 'wall', WALL_EVERY * 1.1, 2)) k.wall(pick(['L', 'R']), rndr(50, 230), GAP_W + 6, WALL_SPD * .9, CW);
+    if (k.cd(e, 'beam', 11, 5)) { const a = k.aim(e, p) - PI / 2; k.beam({ owner: e, a, warn: 1.3, dur: 3, spin: -.34, c: C }); k.beam({ owner: e, a: a + PI, warn: 1.3, dur: 3, spin: -.34, c: C }); }
     if (k.cd(e, 'swap', SWAP_EVERY * .8)) { FX.set(pick(['feedback', 'fire', 'matrix']), .2); FX.kick(1.2); }
   }`);
 
@@ -704,7 +708,7 @@ const DIR = (() => {
       runJobs(w); LIVE.fn['dir.mutator'](w, st.sector, st.wave);
       if (n > w.peak) w.peak = n;
       const done = w.i >= w.steps.length && !w.jobs.length;
-      if (done && n === 0) { w.clr += dt; if (w.clr > CLEAR_HOLD) { st.phase = 'clear'; st.t = 0; banner('WAVE CLEARED', 'SECTOR ' + (st.sector + 1) + ' // ' + SECTORS[st.sector].waves[st.wave].name + ' OK', 1.4); sfx('levelup'); } }
+      if (done && n === 0) { w.clr += dt; if (w.clr > CLEAR_HOLD) { st.phase = 'clear'; st.t = 0; if (st.sector < REPAIR_SECTORS && typeof GAME !== 'undefined') GAME.heal(1); banner('WAVE CLEARED', 'SECTOR ' + (st.sector + 1) + ' // ' + SECTORS[st.sector].waves[st.wave].name + ' OK', 1.4); sfx('levelup'); } }
       else w.clr = 0;
       if (done && n > 0 && w.t > w.end * DIR.PACE + STALL_T) { ENT.each(T_ENEMY, e => ENT.kill(e, e)); st.log.push('stall:' + st.sector + '.' + st.wave); }
       return;
@@ -741,7 +745,7 @@ const DIR = (() => {
     phase(k) { const e = st.boss; if (!e) return; const B = BOSS[st.bossKey]; const th = B.ph[k - 1]; if (th != null) { e.hp = Math.floor(e.maxhp * th) - 1; e.inv = 0; } }
   };
 
-  return { reset, update, sectors: SECTORS, state: st, bosses: BOSS, k: K, hz: HZ, far, HPK: 1, PACE: .8, debug, restoreUp,
+  return { reset, update, sectors: SECTORS, state: st, bosses: BOSS, k: K, hz: HZ, far, HPK: 1, PACE: .85, debug, restoreUp,
     spawn: (t, x, y, o) => LIVE.fn['dir.spawn'](t, x, y, o) };
 
   // arc helper (function declaration, hoisted)

@@ -515,6 +515,8 @@ for (let y = 0, i = 0; y < H; y++, i += W) {
 
   // ---------- frame driver ----------
   const run = (name, o, t, dt, b, k) => { const fx = E[name]; init(fx); fx.draw(t, dt, o, b, k); };
+  // per-effect brightness weight under gameplay dim (busy full-screen fields are pushed further back)
+  const GK = { plasma: .58, rotozoom: .55, copper: .66, lens: .72, voxel: .8, kefrens: .82, tunnel: .9, twister: .9, metaballs: .9, moire: .95 };
   const mix = (a, c, f) => { const ia = (f * 256) | 0, ib = 256 - ia;
     for (let i = 0; i < N; i++) { const x = a[i], y = c[i];
       a[i] = ((((x & 0xff00ff) * ia + (y & 0xff00ff) * ib) >>> 8) & 0xff00ff) | ((((x & 0xff00) * ia + (y & 0xff00) * ib) >>> 8) & 0xff00); } };
@@ -536,7 +538,11 @@ for (let y = 0, i = 0; y < H; y++, i += W) {
       if (prev) { fadeT += dt;
         if (fadeT >= fadeD || !E[prev]) prev = null;
         else { if (fadeD <= 1.2 || (pOdd ^= 1)) run(prev, B, ft, edt, b, kick); mix(A, B, sstep(0, 1, fadeT / fadeD)); } }
-      LIVE.fn['fx.tone'](L, clamp(api.dim, 0, 1), b, kick);
+      // gameplay readability: full-field, high-energy effects get an extra per-effect gain at low dim (crossfade aware)
+      let dim = clamp(api.dim, 0, 1);
+      if (dim < .6) { const gc = GK[api.cur] || 1, gp = prev ? GK[prev] || 1 : gc, f = prev ? sstep(0, 1, fadeT / fadeD) : 1, g = gp + (gc - gp) * f;
+        dim *= lerp(g, 1, clamp((dim - .4) / .2, 0, 1)); }
+      LIVE.fn['fx.tone'](L, dim, b, kick);
       LIVE.fn['fx.out'](A, fb, L, S.t, b);
       if (frameN > 3 && pend.length) { const n = pend.shift(); if (E[n]) init(E[n]); }  // idle precompute, one effect per frame
     }

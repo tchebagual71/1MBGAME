@@ -32,6 +32,19 @@ const GFX = (() => {
     return rgb(r * 255 + .5, g * 255 + .5, b * 255 + .5);
   };
   const lum = c => ((c & 255) * 54 + (c >> 8 & 255) * 183 + (c >> 16 & 255) * 19) >> 8;
+  // palette language: enemy fire is always WARM (red/orange/yellow/pink). warm(c) keeps warm hues and maps cool ones
+  // (green/cyan/blue/violet — reserved for the player, pickups and UI) onto distinct warm hues; greys/white pass through.
+  const WMAP = [[58, 55], [150, 46], [164, 335], [215, 343], [250, 352], [285, 305]], WC = new Map();
+  const warm = c => {
+    c = (c | A) >>> 0; let o = WC.get(c); if (o != null) return o;
+    const r = (c & 255) / 255, g = (c >> 8 & 255) / 255, b = (c >> 16 & 255) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    if (d < .12) o = c; else {
+      let h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h = (h * 60 + 360) % 360;
+      if (h > 58 && h < 285) { let k = 0; while (k < WMAP.length - 2 && h > WMAP[k + 1][0]) k++;
+        const a = WMAP[k], e = WMAP[k + 1], f = (h - a[0]) / (e[0] - a[0]); h = a[1] + (e[1] - a[1]) * f; if (k === 1) h = f < .5 ? a[1] : 335; }
+      o = hsv(h / 360, Math.max(.55, d / mx), Math.max(.92, mx)) >>> 0; }
+    if (WC.size > 256) WC.clear(); WC.set(c, o); return o;
+  };
 
   // fast private RNG for visual noise (never disturbs gameplay rnd())
   let rs = 0x1234567;
@@ -497,7 +510,7 @@ const GFX = (() => {
 
   return {
     clear, fade, pset, add, get, rect, rectA, rectAdd, frame, line, lineA, glowLine, circ, circA, disc, discA, discB, glow, tri, triA, shape, shapeG, fill, fillA,
-    text, textW, textC, textR, textO, textS, textFx, CHR, hsv, mix, scale, addc: (a, b) => addc(a, b) >>> 0, lum,
+    text, textW, textC, textR, textO, textS, textFx, CHR, hsv, mix, scale, addc: (a, b) => addc(a, b) >>> 0, lum, warm,
     spr, sprDef, SPR, SH, burst, spark, ring, floatText, bolt, boltNow, pUpdate, pDraw, pClear, pCount: () => pn, PMAX: PN,
     copy, snap, blit
   };

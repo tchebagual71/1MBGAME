@@ -242,6 +242,7 @@ m.tone = TONE;`);
   }
   function heal(nm, err) {
     try {
+      if (LIVE.heal) { if (!LIVE.heal(nm, err)) LIVE.revert(nm); return; }   // kernel keeps PATCH.active / p.n consistent
       const L = LIVE.log, D = LIVE._d && LIVE._d[nm];
       for (let i = L.length - 1; i >= 0; i--) { const en = L[i]; if (en.name !== nm || !D) continue; const k = D.p.indexOf(en.p);
         if (k >= 0) { D.p.splice(k, 1); LIVE._re(nm); L.splice(i, 1); BUS.emit('panic', err, en); return; } }

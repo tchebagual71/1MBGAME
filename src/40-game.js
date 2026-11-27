@@ -35,22 +35,23 @@ const GAME = (() => {
   const enemies = [], pshots = [], eshots = [];
   const orbs = new Float32Array(64 * 3); let orbN = 0;
   const ghosts = []; for (let i = 0; i < 10; i++) ghosts.push({ x: 0, y: 0, rot: 0, t: 0 });
-  let ghostI = 0, ghostT = 0;
+  let ghostI = 0, ghostT = 0, critT = -9;
 
   const sfx = (n, o) => { try { AU.sfx(n, o); } catch (e) { } };
   const pop = (str, x, y, c, life) => GFX.floatText(str, clamp(x, 4 + str.length * 3, 476 - str.length * 3), y, c, life);
-  const hpMul = () => 1 + (S.diff - 1) * .6;
-  const spdMul = () => 1 + (S.diff - 1) * .18;
+  // enemy toughness must keep pace with patch stacking (player dps grows ~15-30x over a run), or waves turn into confetti
+  const hpMul = () => { const d = Math.max(0, S.diff - 1); return 1 + d * 1.5 + d * d * 2.4; };
+  const spdMul = () => 1 + (S.diff - 1) * .22;
   const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 
   // =====================================================================
   //  LIVE SOURCE — the player reads (and patches) all of this
   // =====================================================================
-  LIVE.def('wpn.fire', 'p,ax,ay,dt', `const RATE=5.5, N=1, SPREAD=.16, SPEED=330, DMG=1, SIZE=2;
+  LIVE.def('wpn.fire', 'p,ax,ay,dt', `const RATE=5.5, N=1, SPREAD=.32, SPEED=330, DMG=1, SIZE=2;
 const o = { team: T_PSHOT, dmg: DMG, r: SIZE, pierce: 0, bounce: 0, homing: 0 };
 const a = Math.atan2(ay, ax);
 for (let i = 0; i < N; i++) {
-  const d = a + (i - (N - 1) / 2) * SPREAD;
+  const d = N > 1 ? a + (i / (N - 1) - .5) * SPREAD : a;   // SPREAD = whole cone
   GAME.shoot(p.x + ax * 5, p.y + ay * 5, Math.cos(d) * SPEED, Math.sin(d) * SPEED, o);
 }
 /*HOOK:fire*/
@@ -76,7 +77,7 @@ b.y += b.vy * dt;`);
 let dmg = b.dmg;
 if (rnd() < CRIT) { dmg *= CRIT_X; GAME.pop('CRIT!', e.x, e.y - e.r - 6, C.yellow); }
 if (CHAIN > 0) GAME.chain(e, CHAIN, b.dmg * .7);
-if (BLAST > 0) GAME.explode(b.x, b.y, BLAST, b.dmg * .5, T_PSHOT);
+if (BLAST > 0) GAME.explode(b.x, b.y, BLAST, b.dmg * .4, T_PSHOT);
 /*HOOK:onhit*/
 return dmg;`);
 
@@ -156,14 +157,18 @@ e.vx *= SPEED * e.spd / v;
 e.vy *= SPEED * e.spd / v;
 e.rot += SPIN * dt;`,
 
-    turret: `const RELOAD=2.4, BURST=3, GAP=.13, BSPD=96;
+    turret: `const RELOAD=3.2, BURST=S.sector ? 3 : 2, GAP=.16, BSPD=94, FAN=.2, FAN_FROM=2;
 e.vx -= e.vx * 4 * dt;
 e.vy -= e.vy * 4 * dt;
 e.rot = GAME.aim(e, p);
 e.cd -= dt;
 if (e.cd > 0) return;
-if (e.n > 0) { e.n--; e.cd = GAP; GAME.eshot(e.x, e.y, e.rot, BSPD * e.spd); AU.sfx('shoot2'); }
-else { e.n = BURST; e.cd = RELOAD; }`,
+if (e.n > 0) {
+  e.n--; e.cd = GAP; AU.sfx('shoot2');
+  const k = S.sector >= FAN_FROM ? 1 : 0;      // later sectors: 3-way fans
+  for (let i = -k; i <= k; i++) GAME.eshot(e.x, e.y, e.rot + i * FAN, BSPD * e.spd);
+}
+else { e.n = BURST; e.cd = RELOAD / e.spd; }`,
 
     worm: `const SPEED=46, WAVE=3, AMP=.9, TURN=1.6;
 const want = GAME.aim(e, p);
@@ -213,7 +218,7 @@ e.vy = (ty - e.y) * PULL;
 GAME.cap(e, 95 * e.spd);
 e.rot += 3 * dt;
 e.cd -= dt;
-if (e.cd <= 0) { e.cd = RELOAD; GAME.eshot(e.x, e.y, GAME.aim(e, p), BSPD * e.spd); AU.sfx('shoot2'); }`,
+if (e.cd <= 0) { e.cd = RELOAD / e.spd; GAME.eshot(e.x, e.y, GAME.aim(e, p), BSPD * e.spd); AU.sfx('shoot2'); }`,
 
     mine: `const FUSE=.75, RANGE=38, BLAST=36, DRIFT=10;
 if (!e.fuse) {
@@ -244,7 +249,7 @@ if (e.st === 0) {            // reposition
   GAME.spot(e, 110);
 }`,
 
-    weaver: `const ARMS=3, RATE=4, SPIN=1.9, BSPD=58, DRIFT=14;
+    weaver: `const ARMS=3 + (S.sector >= 4), RATE=4, SPIN=1.9, BSPD=60, DRIFT=14;
 e.rot += SPIN * dt;
 GAME.seek(e, p.x, p.y, DRIFT);
 if (e.age % 4.5 > 3) return;     // breathe
@@ -280,7 +285,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     nearestEnemy(x, y, maxd) { let b = null, bd = maxd * maxd;
       for (let i = 0; i < enemies.length; i++) { const e = enemies[i]; if (e.dead || e.warp > 0) continue; const d = (e.x - x) * (e.x - x) + (e.y - y) * (e.y - y); if (d < bd) { bd = d; b = e; } }
       return b; },
-    pop(str, x, y, c) { pop(str, x, y, c || C.white); },
+    pop(str, x, y, c) { if (str === 'CRIT!') { if (S.t - critT < .3 && S.t >= critT) return; critT = S.t; } pop(str, x, y, c || C.white); },   // crit spam hid bullets
     recoil(p, ax, ay, n) { p.kick = Math.min(3, p.kick + 1.4); p.muz = .05; p.vx -= ax * (6 + n); p.vy -= ay * (6 + n); },
     orb(x, y, dmg) { if (orbN >= 64) return; orbs[orbN * 3] = x; orbs[orbN * 3 + 1] = y; orbs[orbN * 3 + 2] = dmg; orbN++; },
     heal(n) { const p = S.player; if (!p || p.dead || p.hp >= p.maxhp) return; p.hp = Math.min(p.maxhp, p.hp + n);
@@ -299,9 +304,10 @@ e.rot = Math.sin(e.age * 3) * .3;`,
         ENT.damage(b, dmg, { x: cur.x, y: cur.y, team: T_PSHOT }); cur = b; }
       if (cur !== e) sfx('laser', { vol: .3, pitch: 2 }); },
     // fork a hitting bullet into n children
-    split(b, n, spread) { const a = Math.atan2(b.vy, b.vx), sp = Math.hypot(b.vx, b.vy) * .85;
+    // children skip the enemy they forked from (e), otherwise they re-hit it instantly (+100% single-target dmg)
+    split(b, n, spread, e) { const a = Math.atan2(b.vy, b.vx), sp = Math.hypot(b.vx, b.vy) * .85;
       for (let i = 0; i < n; i++) { const d = a + (i - (n - 1) / 2) * spread;
-        const c = shoot(b.x, b.y, Math.cos(d) * sp, Math.sin(d) * sp, { team: T_PSHOT, dmg: Math.max(.5, b.dmg * .5), r: Math.max(1.5, b.r * .75), gen: b.gen + 1, life: .6 }); if (c) c.last = b.last; } },
+        const c = shoot(b.x, b.y, Math.cos(d) * sp, Math.sin(d) * sp, { team: T_PSHOT, dmg: Math.max(.4, b.dmg * .5), r: Math.max(1.5, b.r * .75), gen: b.gen + 1, life: .6 }); if (c) c.last = e || b.last; } },
     onInfect(e) {
       e.label = e.bug ? e.bug.name : 'NULL_PTR';
       if (e.bug) { sfx('bug'); S.glitch = Math.max(S.glitch, .85); pop('INJECT ' + e.bug.name, e.x, e.y - 18, C.red, 1.4); GFX.ring(e.x, e.y, 4, 46, C.red, .5); S.shake = Math.max(S.shake, 4); }
@@ -334,7 +340,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
         LIVE.fn['wpn.bullet'](b, dt);
         if (b.x < AX0 || b.x > AX1 || b.y < AY0 || b.y > AY1) {
           if (b.bounce > 0) {
-            b.bounce--; b.last = null;
+            b.bounce--; b.last = null; b.dmg *= .5;     // ricochets lose energy
             if (b.x < AX0) { b.x = 2 * AX0 - b.x; b.vx = Math.abs(b.vx); } else if (b.x > AX1) { b.x = 2 * AX1 - b.x; b.vx = -Math.abs(b.vx); }
             if (b.y < AY0) { b.y = 2 * AY0 - b.y; b.vy = Math.abs(b.vy); } else if (b.y > AY1) { b.y = 2 * AY1 - b.y; b.vy = -Math.abs(b.vy); }
             GFX.spark(b.x, b.y, -b.vx * .2, -b.vy * .2, b.c, .15, 1);
@@ -357,12 +363,13 @@ e.rot = Math.sin(e.age * 3) * .3;`,
         if (r > 2.4) { GFX.disc(x, y, r + 1, PDARK); GFX.disc(x, y, r, b.c); GFX.disc(x, y, r * .5, PCORE); GFX.lineA(tx, ty, x, y, b.c); }
         else { GFX.glow(x, y, 5, b.c, .5); GFX.line(tx, ty, x, y, b.c); GFX.line(tx + 1, ty, x + 1, y, b.c); GFX.line(tx * .5 + x * .5, ty * .5 + y * .5 + 1, x, y + 1, PCORE); GFX.disc(x, y, 1.2, PCORE); }
       } else if (b.kind === 'needle' || b.kind === 'beam') {
-        const sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp * (r * 2.5 + 2), uy = b.vy / sp * (r * 2.5 + 2);
+        const sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp * (r * 2.5 + 2), uy = b.vy / sp * (r * 2.5 + 2), wc = b.wc0 === b.c ? b.wc : (b.wc0 = b.c, b.wc = GFX.warm(b.c));
         GFX.line(x - ux + 1, y - uy, x + ux + 1, y + uy, EDARK); GFX.line(x - ux, y - uy + 1, x + ux, y + uy + 1, EDARK);
-        GFX.line(x - ux, y - uy, x + ux, y + uy, b.c); GFX.pset(x + ux * .5, y + uy * .5, b.hot);
-      } else {
-        GFX.disc(x, y, r + 1.6, EDARK); GFX.disc(x, y, r, b.c); GFX.disc(x, y, r * .45, b.hot);
-        if (r >= 4) GFX.circ(x, y, r + 2.5 + Math.sin(S.t * 12) * .8, GFX.scale(b.c, .6));
+        GFX.line(x - ux, y - uy, x + ux, y + uy, wc); GFX.pset(x + ux * .5, y + uy * .5, b.hot);
+      } else {   // (visual QA) enemy fire is always drawn warm, whatever colour the pattern asked for
+        const wc = b.wc0 === b.c ? b.wc : (b.wc0 = b.c, b.wc = GFX.warm(b.c));
+        GFX.disc(x, y, r + 1.6, EDARK); GFX.disc(x, y, r, wc); GFX.disc(x, y, r * .45, b.hot);
+        if (r >= 4) GFX.circ(x, y, r + 2.5 + Math.sin(S.t * 12) * .8, GFX.scale(wc, .6));
       }
     } });
 
@@ -402,7 +409,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
       e.x += e.vx * dt; e.y += e.vy * dt;
       e.x = clamp(e.x, AX0, AX1); e.y = clamp(e.y, AY0, AY1);
     },
-    draw(e) { if (e.life < 2 && (e.life * 10 | 0) % 2) return; const c = e.v ? BITC : rgb(90, 220, 255);
+    draw(e) { if (e.life < 2 && (e.life * 10 | 0) % 2) return; const c = e.v ? BITC : rgb(215, 255, 120);   // pickups: green / yellow-green (cyan belongs to the player)
       GFX.add(e.x, e.y, GFX.scale(c, .5)); GFX.text(e.v ? '1' : '0', e.x - 2, e.y - 3, c); } });
   const GAME_cap = H.cap;
 
@@ -465,10 +472,15 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     const ox = -p.ax * p.kick, oy = -p.ay * p.kick, x = p.x + ox, y = p.y + oy;
     if (p.hp <= 1) GFX.glow(p.x, p.y, 16 + S.beat * 4, C.red, .35 + .25 * Math.sin(S.t * 10));
     if (!blink) {
-      GFX.glow(x, y, 15, PCOL, p.dashT > 0 ? .6 : .32);
-      GFX.disc(x, y, 4, PDARK);
-      GFX.shape(SH.ship, x, y, p.rot, 6, p.dashT > 0 ? C.white : PCOL);
-      GFX.shape(SH.ship, x, y, p.rot, 3.2, GFX.scale(PCOL, .55));
+      // (visual QA) dark halo cuts the ship out of any background; doubled outline + rotating reticle = unmistakably "you"
+      GFX.discB(x, y, 10, PDARK, .62);
+      GFX.glow(x, y, 16, PCOL, p.dashT > 0 ? .6 : .36);
+      GFX.fill(SH.ship, x, y, p.rot, 6, PDARK);
+      GFX.shape(SH.ship, x, y, p.rot, 6.7, GFX.scale(PCOL, .7));
+      GFX.shape(SH.ship, x, y, p.rot, 6, p.dashT > 0 ? C.white : PCORE);
+      GFX.shape(SH.ship, x, y, p.rot, 3.2, PCOL);
+      const ra = S.t * 1.7, rc = GFX.scale(PCOL, .5 + .25 * S.beat);
+      for (let i = 0; i < 4; i++) { const a = ra + i * PI / 2, ca = Math.cos(a), sa = Math.sin(a); GFX.line(x + ca * 11, y + sa * 11, x + ca * 13.5, y + sa * 13.5, rc); }
     }
     GFX.disc(p.x, p.y, 1.5, C.white);                 // the true hitbox
     if (p.muz > 0) { const mx = p.x + p.ax * 8, my = p.y + p.ay * 8; GFX.glow(mx, my, 7, PCORE, .9); GFX.disc(mx, my, 1.6, C.white); }
@@ -525,7 +537,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     e.spd = e.spd || spdMul(); e.seed = rnd() * 100; e.cd = e.cd || 0; e.st = 0; e.t = 0; e.n = 0;
   }
   const INIT = {
-    turret(e) { e.n = 3; e.cd = rndr(.8, 1.8); },
+    turret(e) { e.n = S.sector ? 3 : 2; e.cd = rndr(1.2, 2.2); },
     worm(e) { const p = S.player; e.dir = p ? Math.atan2(p.y - e.y, p.x - e.x) : 0; e.rot = e.dir; },
     charger(e) { e.t = rndr(.8, 1.6); },
     orbiter(e) { const p = S.player || { x: 240, y: 140 }; e.ang = Math.atan2(e.y - p.y, e.x - p.x); e.dirn = rnd() < .5 ? -1 : 1; e.cd = rndr(.8, 1.8); },
@@ -637,7 +649,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
 
   const ONDIE = {
     splitter(e) { const n = 2 + (rnd() < .5 ? 1 : 0), a0 = rnd() * TAU;
-      for (let i = 0; i < n; i++) { const a = a0 + i * TAU / n; spawnEnemy('shard', e.x + Math.cos(a) * 4, e.y + Math.sin(a) * 4, { warp: 0, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120 }); } },
+      for (let i = 0; i < n; i++) { const a = a0 + i * TAU / n; spawnEnemy('shard', e.x + Math.cos(a) * 4, e.y + Math.sin(a) * 4, { warp: 0, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120, safeT: .2 }); } },   // safeT: no contact while bursting out
     mine(e, src) { if (src !== e) explode(e.x, e.y, 38, 4, T_PSHOT); },
     worm(e) { for (const s of e.segs || []) if (!s.dead) { s.noscore = true; ENT.kill(s, s); } },
     mutator(e) {
@@ -675,7 +687,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     const p = S.player;
     if (p && !p.dead) { const dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy); if (d < 44) { const a = d > .1 ? Math.atan2(dy, dx) : rnd() * TAU; x = clamp(p.x + Math.cos(a) * 48, AX0 + T.r, AX1 - T.r); y = clamp(p.y + Math.sin(a) * 48, AY0 + T.r, AY1 - T.r); } }
     const e = ENT.spawn(type, x, y, o);
-    if (!(o && o.hp)) { e.hp = Math.max(1, Math.round(T.hp * hpMul() * 10) / 10); e.maxhp = e.hp; }
+    if (!(o && o.hp)) { e.hp = Math.max(1, Math.round(T.hp * (type === 'mutator' ? Math.pow(hpMul(), .7) : hpMul()) * 10) / 10); e.maxhp = e.hp; }
     if (type === 'worm') {
       e.segs = []; const n = 7 + Math.min(4, S.diff | 0), a = e.dir + PI;
       for (let i = 0; i < n; i++) { const s = ENT.spawn('wseg', x + Math.cos(a) * (i + 1) * 6.5, y + Math.sin(a) * (i + 1) * 6.5); s.head = e; s.idx = i; s.warp = e.warp; s.r = 5 - i * .15; e.segs.push(s); }
@@ -752,7 +764,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     if (p.inv <= 0) for (let i = 0; i < eshots.length; i++) { const b = eshots[i]; if (b.dead) continue; const rr = b.r + p.r;
       if ((b.x - p.x) ** 2 + (b.y - p.y) ** 2 < rr * rr) { b.dead = true; hurtPlayer(b.dmg > 0 ? Math.ceil(b.dmg) : 1, b); if (p.dead) return; break; } }
     // enemy bodies -> player (or dash-strike)
-    for (let i = 0; i < enemies.length; i++) { const e = enemies[i]; if (e.dead || e.warp > 0 || e.harmless) continue;
+    for (let i = 0; i < enemies.length; i++) { const e = enemies[i]; if (e.dead || e.warp > 0 || e.harmless || e.age < (e.safeT || 0)) continue;
       const rr = e.r * .85 + p.r; if ((e.x - p.x) ** 2 + (e.y - p.y) ** 2 >= rr * rr) continue;
       if (p.ram > 0 && p.dashT > 0) { if (e._ram !== p.dashId) { e._ram = p.dashId; ENT.damage(e, p.ram, p); GFX.burst(e.x, e.y, 10, C.white, 90, .3); S.shake = Math.max(S.shake, 3); } }
       else if (p.inv <= 0 && e.contact !== 0) { hurtPlayer(e.contact || 1, e); if (p.dead) return; }
@@ -774,13 +786,13 @@ e.rot = Math.sin(e.age * 3) * .3;`,
 
   // --- weapon ---
   up('rate', 'OVERCLOCK', 'RATE*=1.25 : +25% fire rate', { max: 4, weight: 1.3, apply: () => tune('wpn.fire', 'RATE', v => Math.round(v * 125) / 100) });
-  up('fork', 'FORK()', 'N=1 -> N+2 : two extra barrels', { max: 2, apply: () => tune('wpn.fire', 'N', v => v + 2) });
-  up('scatter', 'SCATTER', 'N+=1, SPREAD*=1.5 : shotgun cone', { max: 2, apply: () => LIVE.patch('wpn.fire', /\bN=(\d+), SPREAD=([\d.]+)/, (m, a, b) => 'N=' + (+a + 1) + ', SPREAD=' + r3(b * 1.5)) });
-  up('dmg', 'INT64', 'DMG+=1 : heavier slugs', { max: 4, weight: 1.3, apply: () => tune('wpn.fire', 'DMG', v => v + 1) });
-  up('velocity', 'HIGH_VELOCITY', 'SPEED*=1.3 : faster rounds', { max: 2, apply: () => tune('wpn.fire', 'SPEED', v => Math.round(v * 1.3)) });
-  up('fat', 'FAT_POINTERS', 'SIZE+=1.3 : bigger hitboxes', { max: 2, apply: () => tune('wpn.fire', 'SIZE', v => v + 1.3) });
+  up('fork', 'FORK()', 'N+=2, DMG*=.7 : two extra barrels', { max: 2, apply: () => tune('wpn.fire', 'N', v => v + 2) && tune('wpn.fire', 'DMG', v => v * .7) });
+  up('scatter', 'SCATTER', 'N+=2, SPREAD*=1.6, DMG*=.85 : shotgun cone', { max: 2, apply: () => LIVE.patch('wpn.fire', /\bN=(\d+), SPREAD=([\d.]+)/, (m, a, b) => 'N=' + (+a + 2) + ', SPREAD=' + r3(b * 1.6)) && tune('wpn.fire', 'DMG', v => v * .85) });
+  up('dmg', 'INT64', 'DMG*=1.4 : heavier slugs', { max: 4, weight: 1.3, apply: () => tune('wpn.fire', 'DMG', v => v * 1.4) });
+  up('velocity', 'HIGH_VELOCITY', 'SPEED*=1.35, DMG*=1.15 : kinetic rounds', { max: 2, apply: () => tune('wpn.fire', 'SPEED', v => Math.round(v * 1.35)) && tune('wpn.fire', 'DMG', v => v * 1.15) });
+  up('fat', 'FAT_POINTERS', 'SIZE+=1.5, DMG*=1.15 : bigger slugs', { max: 2, apply: () => tune('wpn.fire', 'SIZE', v => v + 1.5) && tune('wpn.fire', 'DMG', v => v * 1.15) });
   up('pierce', 'NOCLIP', 'pierce: 0 -> +1 : rounds pass through', { max: 3, apply: () => field('wpn.fire', 'pierce', v => v + 1) });
-  up('bounce', 'RICOCHET', 'bounce: 0 -> +1 : rounds bounce off walls', { max: 3, apply: () => field('wpn.fire', 'bounce', v => v + 1) });
+  up('bounce', 'RICOCHET', 'bounce: 0 -> +1 : rounds bounce off walls', { max: 2, apply: () => field('wpn.fire', 'bounce', v => v + 1) });
   up('homing', 'SEEK()', 'homing: 0 -> +3 : rounds steer to targets', { max: 2, apply: () => field('wpn.fire', 'homing', v => v + 3) });
   up('rear', 'REAR_GUN', '+ GAME.shoot(.., -ax*SPEED, -ay*SPEED) : tail gun', { weight: .6, apply: () => hook('wpn.fire', 'fire', 'GAME.shoot(p.x, p.y, -ax * SPEED, -ay * SPEED, o);') });
   up('side', 'SIDE_CHANNEL', '+ 2x GAME.shoot(perpendicular) : side cannons', { weight: .5, apply: () => hook('wpn.fire', 'fire', 'GAME.shoot(p.x, p.y, -ay * SPEED * .8, ax * SPEED * .8, o);\nGAME.shoot(p.x, p.y, ay * SPEED * .8, -ax * SPEED * .8, o);') });
@@ -788,8 +800,8 @@ e.rot = Math.sin(e.age * 3) * .3;`,
   up('crit', 'BRANCH_PREDICT', 'CRIT+=.15 : chance of x3 damage', { max: 3, apply: () => tune('wpn.hit', 'CRIT', v => v + .15) });
   up('chain', 'ARC_LIGHTNING', 'CHAIN+=2 : hits arc to nearby enemies', { max: 2, weight: .8, apply: () => tune('wpn.hit', 'CHAIN', v => v + 2) });
   up('blast', 'HE_ROUNDS', 'BLAST+=14 : rounds explode on impact', { max: 2, weight: .8, apply: () => tune('wpn.hit', 'BLAST', v => v + 14) });
-  up('split', 'RECURSION', '+ if (!b.gen) GAME.split(b, 2, .7) : hits fork', { weight: .5, apply: () => hook('wpn.hit', 'onhit', 'if (!b.gen) GAME.split(b, 2, .7);') });
-  up('execute', 'KILL -9', '+ if (hp-dmg < 20% maxhp) dmg = hp : execute', { weight: .5, apply: () => hook('wpn.hit', 'onhit', 'if (!e.boss && e.hp - dmg < e.maxhp * .2) dmg = e.hp;') });
+  up('split', 'RECURSION', '+ if (!b.gen) GAME.split(b, 2, .7, e) : hits fork', { weight: .5, apply: () => hook('wpn.hit', 'onhit', 'if (!b.gen) GAME.split(b, 2, .7, e);') });
+  up('execute', 'KILL -9', '+ if (hp-dmg < 30% maxhp) dmg = hp : execute', { weight: .5, apply: () => hook('wpn.hit', 'onhit', 'if (!e.boss && e.hp - dmg < e.maxhp * .3) dmg = e.hp;') });
   // --- player ---
   up('turbo', 'TURBO_CLOCK', 'SPEED*=1.12 : move faster', { max: 2, apply: () => tune('ply.move', 'SPEED', v => Math.round(v * 1.12)) });
   up('dashcd', 'FAST_DASH', 'COOLDOWN*=.7 : dash more often', { max: 2, apply: () => tune('ply.dash', 'COOLDOWN', v => v * .7) });
@@ -797,13 +809,13 @@ e.rot = Math.sin(e.age * 3) * .3;`,
   up('ram', 'DASH_STRIKE', '+ p.ram = 6 : dash through enemies for 6 dmg', { weight: .6, apply: () => hook('ply.dash', 'dash', 'p.ram = 6;') });
   up('hp', 'MALLOC(HP)', 'MAXHP+=1 : +1 max hp, heal 1', { max: 3, weight: 1.2,
     apply() { const ok = tune('ply.tick', 'MAXHP', v => v + 1); const p = S.player; if (ok && p && !p.dead) { p.maxhp++; p.hp = Math.min(p.maxhp, p.hp + 1); } return ok; } });
-  up('regen', 'GARBAGE_COLLECT', 'REGEN+=.025 : regenerate hp over time', { max: 2, apply: () => tune('ply.tick', 'REGEN', v => v + .025) });
+  up('regen', 'GARBAGE_COLLECT', 'REGEN+=.012 : regenerate 1 hp / 80s', { max: 2, apply: () => tune('ply.tick', 'REGEN', v => v + .012) });
   up('orbit', 'ORBITALS', 'ORBITALS+=2 : satellites shred contacts', { max: 3, apply: () => tune('ply.tick', 'ORBITALS', v => v + 2) });
   up('magnet', 'WIDE_BUS', 'MAGNET*=1.8 : pull bits from afar', { max: 2, weight: .8, apply: () => tune('ply.tick', 'MAGNET', v => Math.round(v * 1.8)) });
   up('ecc', 'ECC_MEMORY', 'BLOCK+=.2 : chance to ignore a hit', { max: 2, apply: () => tune('ply.hurt', 'BLOCK', v => v + .2) });
   up('thorns', 'THORNS.EXE', '+ GAME.explode(p, 70, 10) : getting hit detonates', { weight: .6, apply: () => hook('ply.hurt', 'hurt', 'GAME.explode(p.x, p.y, 70, 10, T_PSHOT);') });
   up('bullettime', 'BULLET_TIME', '+ GAME.slow(1.5) : time slows when hit', { weight: .6, apply: () => hook('ply.hurt', 'hurt', 'GAME.slow(1.5);') });
-  up('leech', 'LIFESTEAL', 'LEECH+=.03 : kills may heal', { max: 2, apply: () => tune('ply.kill', 'LEECH', v => v + .03) });
+  up('leech', 'LIFESTEAL', 'LEECH+=.006 : kills may heal', { max: 2, apply: () => tune('ply.kill', 'LEECH', v => v + .006) });
   up('bits', 'BIT_DOUBLER', 'BITS*=2 : double bit drops', { max: 2, weight: .8, apply: () => tune('ply.kill', 'BITS', v => v * 2) });
   up('cascade', 'CASCADE', '+ 3x GAME.shoot(homing) : kills spawn seekers', { weight: .5, apply: () => hook('ply.kill', 'kill', 'for (let i = 0; i < 3; i++) GAME.shoot(e.x, e.y, Math.cos(i * 2.1) * 200, Math.sin(i * 2.1) * 200, { team: T_PSHOT, dmg: 1, homing: 7 });') });
 

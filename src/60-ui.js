@@ -218,7 +218,7 @@ const UI = (() => {
   // ---------- run bookkeeping ----------
   let hiAtStart = -1;
   function startRun() { hiAtStart = S.hi; try { RUN.start(); } catch (e) { console.error(e); } }
-  function toggleFull() { try { document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen(); } catch (e) { } }
+  function toggleFull() { SELF.fullscreen(); }
   function toggleMute() { S.opt.mute = !S.opt.mute; try { AU.mute(S.opt.mute); } catch (e) { } }
   let exportMsg = '', exportT = 0;
   function doExport() {
@@ -233,25 +233,31 @@ const UI = (() => {
     if (!LOGO || LOGO.str !== str) { LOGO = logoMask(str); LOGO.str = str; }
     const { M, w } = LOGO, LW = w * SC, LH = 8 * SC, shine = ((t * 190) % (LW + 500)) - 250, pulse = 1 + .22 * S.beat;
     const bit = (px, py) => { if (px < 0 || py < 0) return 0; const cx = px / SC | 0, cy = py / SC | 0; return cx < w && cy < 8 ? M[cy * w + cx] : 0; };
+    // per-pixel class map is static for a given string/scale: 1 body, 2 lit edge, 3 dark edge, 4 outline, 5 drop shadow
+    const CW = LW + 9, CHh = LH + 9;
+    if (!LOGO.cls || LOGO.sc !== SC) { const cls = new Uint8Array(CW * CHh);
+      for (let py = -2; py < LH + 7; py++) for (let px = -2; px < LW + 7; px++) { let c = 0;
+        if (bit(px, py)) { const fu = (px % SC) / SC, fv = (py % SC) / SC, cx = px / SC | 0, cy = py / SC | 0; c = 1;
+          if ((fv < .2 && !M[(cy - 1) * w + cx]) || (fu < .2 && (cx % 6 === 0 || !M[cy * w + cx - 1]))) c = 2;
+          else if ((fv > .8 && (cy === 7 || !M[(cy + 1) * w + cx])) || (fu > .8 && !M[cy * w + cx + 1])) c = 3; }
+        else if (bit(px - 1, py) || bit(px + 1, py) || bit(px, py - 1) || bit(px, py + 1)) c = 4; else if (bit(px - 5, py - 5)) c = 5;
+        cls[(py + 2) * CW + px + 2] = c; }
+      LOGO.cls = cls; LOGO.sc = SC; }
+    const cls = LOGO.cls;
     for (let py = -2; py < LH + 7; py++) {
       const y = Y + py; if (y < 0 || y >= H) continue;
-      const wob = Math.sin(py * .085 + t * 2.4) * 5 + Math.sin(t * 1.1 + py * .021) * 4, o = y * W, v = py / LH;
-      let r, g, b; // chrome: sky -> horizon -> ground
+      const wob = Math.sin(py * .085 + t * 2.4) * 5 + Math.sin(t * 1.1 + py * .021) * 4, o = y * W, v = py / LH, ro = (py + 2) * CW + 2;
+      let r, g, b;
       if (v < .5) { const k = v * 2; r = lerp(pal[0], pal[3], k); g = lerp(pal[1], pal[4], k); b = lerp(pal[2], pal[5], k); }
       else { const k = (v - .5) * 2; r = lerp(pal[6], pal[9], k); g = lerp(pal[7], pal[10], k); b = lerp(pal[8], pal[11], k); }
-      const fv = (py % SC) / SC;
-      for (let px = -2; px < LW + 7; px++) {
-        const x = X + px + wob | 0; if (x < 0 || x >= W) continue;
-        if (bit(px, py)) {
-          const fu = (px % SC) / SC, cx = px / SC | 0, cy = py / SC | 0;
-          let k = pulse;
-          if ((fv < .2 && !M[(cy - 1) * w + cx]) || (fu < .2 && (cx % 6 === 0 || !M[cy * w + cx - 1]))) k *= 1.55;
-          else if ((fv > .8 && (cy === 7 || !M[(cy + 1) * w + cx])) || (fu > .8 && !M[cy * w + cx + 1])) k *= .55;
-          const d = px + py * .55 - shine, sh = d > 0 && d < 14 ? 140 * (1 - Math.abs(d - 7) / 7) : 0;
-          const R = r * k + sh, G = g * k + sh, B = b * k + sh;
-          fb[o + x] = 0xff000000 | (B > 255 ? 255 : B) << 16 | (G > 255 ? 255 : G) << 8 | (R > 255 ? 255 : R);
-        } else if (bit(px - 1, py) || bit(px + 1, py) || bit(px, py - 1) || bit(px, py + 1)) fb[o + x] = 0xff000000;
-        else if (bit(px - 5, py - 5)) { const p = fb[o + x]; fb[o + x] = (p >> 2 & 0x3f3f3f) | 0xff000000; }
+      const xw = X + wob | 0, pa = Math.max(-2, -xw), pb = Math.min(LW + 7, W - xw);
+      for (let px = pa; px < pb; px++) {
+        const c = cls[ro + px]; if (!c) continue; const x = xw + px;
+        if (c === 4) { fb[o + x] = 0xff000000; continue; }
+        if (c === 5) { const p = fb[o + x]; fb[o + x] = (p >> 2 & 0x3f3f3f) | 0xff000000; continue; }
+        const k = pulse * (c === 2 ? 1.55 : c === 3 ? .55 : 1), d = px + py * .55 - shine, sh = d > 0 && d < 14 ? 140 * (1 - Math.abs(d - 7) / 7) : 0;
+        const R = r * k + sh, G = g * k + sh, B = b * k + sh;
+        fb[o + x] = 0xff000000 | (B > 255 ? 255 : B) << 16 | (G > 255 ? 255 : G) << 8 | (R > 255 ? 255 : R);
       }
     }
     return LW;
@@ -392,12 +398,13 @@ const UI = (() => {
     draw(dt) {
       atlas(); fxDraw(dt); const t = TI.t;
       copper(t, 5, 48, 34, 6, .45);
-      // bouncing vector object
-      vecObj(W / 2 + Math.sin(t * .55) * 196, 168 - Math.abs(Math.sin(t * 1.9)) * 46, 22, t * 1.6, t * .05);
+      // two bouncing vector objects flanking the menu (they keep to their lanes, never cross the panel)
+      vecObj(70 + Math.sin(t * .7) * 9, 160 - Math.abs(Math.sin(t * 1.9)) * 28, 18, t * 1.6, t * .05);
+      vecObj(410 - Math.sin(t * .7) * 9, 160 - Math.abs(Math.sin(t * 1.9 + 1.2)) * 28, 18, -t * 1.4 + 2, t * .05 + .5);
       const drop = 1 - sstep(0, 1, t / .9), bounce = Math.abs(Math.sin(t * 7)) * 8 * drop;
       logo('SELF.MOD', 24, 11 - drop * 110 - bounce, 9, t, [235, 252, 255, 60, 120, 230, 255, 120, 236, 70, 10, 110]);
       txc('A LIVE-CODED ARENA SHOOTER  //  EVERY UPGRADE IS A SOURCE PATCH', W / 2, 90, GFX.mix(K.cyan, K.white, S.beat));
-      darken(140, 101, 200, 96, .55); GFX.frame(140, 101, 200, 96, GFX.scale(K.line, 1 + S.beat));
+      darken(140, 101, 200, 96, .72); GFX.frame(140, 101, 200, 96, GFX.scale(K.line, 1 + S.beat));
       menuDraw(titleMenu);
       txc('HI-SCORE ' + LIVE.fn['ui.digits'](S.hi, 8), W / 2, 201, K.yel);
       if (S.genome.gen > 0) {
@@ -501,7 +508,7 @@ const UI = (() => {
   }
   function drawPick() {
     const n = PS.offer.length, t = PS.t;
-    darken(0, 0, W, 33, .7);
+    darken(0, 0, W, 33, .9); GFX.rect(0, 33, W, 1, GFX.scale(K.grn, .35 + .3 * S.beat));
     GFX.textFx('PATCH AVAILABLE', W / 2 - GFX.textW('PATCH AVAILABLE', 2) / 2, 5, 2, (px, py, u, v) => GFX.mix(GFX.hsv(.33 + u * .2, .7, 1), K.white, v < .3 ? .6 : 0));
     txc('SELECT [1-' + n + ']  ARROWS+ENTER  CLICK' + (IN.touch ? ' / TAP TWICE' : '') + '   //   LIVE.GEN ' + LIVE.gen, W / 2, 24, K.dim2);
     if (PS.picks > 1) txr('PICK ' + (PS.pick + 1) + '/' + PS.picks, W - 6, 8, K.yel);
@@ -532,14 +539,32 @@ const UI = (() => {
       const li = s0 + r, y = wy + 14 + r * 9, hot = li === pv.hi;
       if (hot) { GFX.rectA(9, y - 1, 462, 9, K.yel, .16 + .1 * Math.sin(S.t * 8)); tx('>', 40, y, K.yel); }
       tx(String(li + 1).padStart(4, ' '), 12, y, K.dim);
-      codeLine(pv.lines[li], 50, y, 69, hot ? 1 : .8);
+      codeLine(pv.lines[li], 50, y, 69, hot ? 1 : .8); if (pv.lines[li].length > 69) moreR(50 + 69 * 6, y);
     }
   }
+  // "line continues" marker at the right edge of a clipped source line
+  const moreR = (x, y) => { GFX.rect(x, y - 1, 6, 9, K.panel); tx('\x80', x, y, K.dim); };
   // horizontal window so the changed span of a long line is visible: returns column offset
   const hwin = (o, maxc) => o.b > maxc - 2 ? Math.max(0, Math.min(o.a - 12, o.s.length - maxc + 2)) : 0;
+  // the changed span with readable context, cut at token boundaries, '..' where the line continues (≤ mc chars)
+  function deltaSeg(o, mc) {
+    const s = o.s.replace(/\s+$/, ''), ind = s.length - s.replace(/^\s+/, '').length, full = s.slice(ind);
+    if (full.length <= mc) return full;
+    let a = Math.max(ind, Math.min(o.a, s.length)), b = Math.max(a, Math.min(o.b, s.length));
+    const brk = c => c === ' ' || c === ',' || c === ';' || c === '(' || c === ')';
+    // grow outwards one token at a time (both sides alternately) while it fits
+    const fits = (x, y) => (y - x) + (x > ind ? 2 : 0) + (y < s.length ? 2 : 0) <= mc;
+    for (let grew = true; grew;) {
+      grew = false;
+      if (a > ind) { let na = a - 1; while (na > ind && !brk(s[na - 1])) na--; if (fits(na, b)) { a = na; grew = true; } }
+      if (b < s.length) { let nb = b + 1; while (nb < s.length && !brk(s[nb])) nb++; if (fits(a, nb)) { b = nb; grew = true; } }
+    }
+    const out = (a > ind ? '..' : '') + s.slice(a, b).trim() + (b < s.length ? '..' : '');
+    return out.length <= mc ? out : clip(out, mc);
+  }
   function drawDiff() {
     const p = PS.p, d = PS.ents[PS.ei], t = PS.t, bug = p && p.kind === 'bug';
-    darken(0, 0, W, 22, .75);
+    darken(0, 0, W, 22, .92);
     txs(clip('APPLYING ' + (p ? p.name : '?'), 30), 8, 4, bug ? K.red : K.grn, 2);
     txr(PS.picks > 1 ? 'PICK ' + (PS.pick + 1) + '/' + PS.picks : 'GEN #' + LIVE.gen, W - 8, 8, K.yel);
     const wx = 8, wy = 24, ww = 464, open = sstep(0, .2, t);
@@ -560,9 +585,10 @@ const UI = (() => {
     for (let i = 0; i < s0; i++) if (ops[i].op === '+') typed -= Math.max(1, ops[i].b - ops[i].a);
     for (let r = 0; r < rows && s0 + r < nr; r++) {
       const o = ops[s0 + r], y = wy + 14 + r * 9;
-      if (o.op === ' ') { tx(String(o.n).padStart(4, ' '), wx + 4, y, K.dim); codeLine(o.s, cx, y, maxc, .62); continue; }
+      if (o.op === ' ') { tx(String(o.n).padStart(4, ' '), wx + 4, y, K.dim); codeLine(o.s, cx, y, maxc, .62); if (o.s.length > maxc) moreR(cx + maxc * 6, y); continue; }
       const ho = hwin(o, maxc), str = o.s.slice(ho), a = clamp(o.a - ho, 0, maxc), b = clamp(o.b - ho, 0, maxc);
       if (ho) GFX.rect(cx - 4, y, 2, 7, K.yel);
+      if (str.length > maxc) moreR(cx + maxc * 6, y);
       if (o.op === '-') {
         const tm = t - T.tm;
         if (tm < 0) { codeLine(str, cx, y, maxc, .62); continue; }
@@ -593,14 +619,18 @@ const UI = (() => {
     if (dh > 30) {
       panel(wx, dy, ww, dh, 'DELTA', bug ? K.red : K.line, .9);
       const big = pairs.length <= 2 && dh >= 50, sc = big ? 2 : 1, lh = big ? 18 : 9, mc = Math.floor((ww - 30) / (6 * sc));
+      const y0d = dy + 13 + Math.max(2, ((dh - 13 - pairs.length * lh) >> 1));         // centred in the panel
       for (let i = 0; i < pairs.length; i++) {
-        const o = pairs[i], y = dy + 15 + i * lh; if (y + 8 * sc > dy + dh) break;
+        const o = pairs[i], y = y0d + i * lh; if (y + 8 * sc > dy + dh) break;
         const minus = o.op === '-'; if (minus ? t < T.tm : t < T.tt) continue;
-        const ctx = 6, s0c = Math.max(0, o.a - ctx), seg = o.s.slice(s0c, Math.min(o.s.length, Math.max(o.b + ctx, s0c + 4))).replace(/^\s+/, ''), shown = clip(seg, mc);
+        const shown = deltaSeg(o, mc);
         txs(o.op, wx + 6, y, minus ? K.red : K.grn, sc);
         txs(shown, wx + 6 + 12 * sc, y, minus ? GFX.mix(K.red2, K.white, .1) : (t >= T.tc ? K.grn : GFX.mix(K.grn, K.white, .5)), sc);
         if (minus && t > T.tm + .3) GFX.rect(wx + 6 + 12 * sc, y + 4 * sc - 1, GFX.textW(shown, sc), sc, K.red2);
       }
+      if (dh >= 60) { let nm = 0, np = 0; for (const o of ops) { if (o.op === '-') nm++; else if (o.op === '+') np++; }
+        const db = d.na - d.nb;
+        txc(d.name + '  ::  -' + nm + ' +' + np + ' LINE' + (nm + np > 1 ? 'S' : '') + '  ::  ' + (db >= 0 ? '+' : '') + db + ' B  ::  HOT-SWAPPED, NO RESTART', W / 2, dy + dh - 12, K.dim); }
     }
     // status line
     const sy = 254;
@@ -633,7 +663,7 @@ const UI = (() => {
       menuUpdate(pauseMenu);
     },
     draw() {
-      fxDraw(0); gameDraw(); hud(0); GFX.fade(.3);
+      fxDraw(0); gameDraw(); hud(0); GFX.fade(.3); darken(0, 0, W, 34, .8);
       GFX.textFx('PROCESS SUSPENDED', W / 2 - GFX.textW('PROCESS SUSPENDED', 2) / 2, 6, 2, (px, py, u, v) => GFX.hsv(.55 + u * .2, .5 + v * .4, 1));
       txc('SIGSTOP  //  GEN #' + LIVE.gen + '  //  T+' + fmtT(S.runTime) + '  //  SECTOR ' + (S.sector + 1) + ' WAVE ' + (S.wave + 1), W / 2, 25, K.dim2);
       panel(8, 36, 148, 104, 'CONTROL', K.line, .9); menuDraw(pauseMenu);
@@ -724,7 +754,7 @@ const UI = (() => {
       if (OV.newHi && t > .7) {
         try { GFX.pDraw(); } catch (e) { }
         GFX.textFx('NEW HIGH SCORE', W / 2 - GFX.textW('NEW HIGH SCORE', 2) / 2, 112, 2, (px, py, u, v) => GFX.hsv(u * .8 + S.t * .6, .7, (S.frame & 8) ? 1 : .8));
-      } else txc(S.hi > 0 ? 'HI-SCORE TO BEAT  ' + S.hi : 'FIRST CRASH IS FREE', W / 2, 116, K.dim2);
+      } else darken(0, 113, W, 13, .6), txc(S.hi > 0 ? 'HI-SCORE TO BEAT  ' + S.hi : 'FIRST CRASH IS FREE', W / 2, 116, K.dim2);
       darken(104, 131, 272, 58, .7);
       if (t >= .8) menuDraw(overMenu);
       darken(0, 194, W, 32, .7);
@@ -843,7 +873,7 @@ const UI = (() => {
     GFX.rect(bx, 6, 34, 3, K.hl); GFX.rect(bx, 6, 34 * cf, 3, mult > 1 ? K.yel : K.org);
     if (S.combo > 1) tx(String(S.combo | 0), bx + 37, 4, K.org);
     // boss bar / sector name
-    const B = S.boss, mid0 = bx + 60, mid1 = 404;
+    const pb = IN.touch && S.mode === 'play', B = S.boss, mid0 = bx + 60, mid1 = pb ? 392 : 404;
     if (B && !B.dead && B.maxhp > 0) {
       if (B !== bossRef) { bossRef = B; bossF = bossT = 1; }
       const f = clamp(B.hp / B.maxhp, 0, 1); bossF += (f - bossF) * Math.min(1, dt * 14 || 1); bossT = Math.max(bossF, bossT - dt * .25);
@@ -857,7 +887,9 @@ const UI = (() => {
       bossRef = null; const sn = sectorName();
       if (sn) txc(clip(sn, Math.floor((mid1 - mid0) / 6)), (mid0 + mid1) / 2, 4, K.dim);
     }
-    txr('SEC ' + (S.sector + 1) + (bossRef ? ' BOSS' : ' W' + (S.wave + 1)), W - 5, 4, bossRef ? K.red2 : K.cyan);
+    // touch players have no Esc: a pause button lives at the right end of the status strip (tap handled in overlay)
+    if (pb) { GFX.frame(W - 15, 2, 12, 12, GFX.scale(K.cyan, .7)); GFX.rect(W - 12, 5, 2, 6, K.cyan); GFX.rect(W - 8, 5, 2, 6, K.cyan); }
+    txr('SEC ' + (S.sector + 1) + (bossRef ? ' BOSS' : ' W' + (S.wave + 1)), pb ? W - 19 : W - 5, 4, bossRef ? K.red2 : K.cyan);
     // low hp vignette
     if (p && p.hp > 0 && Math.ceil(p.hp) <= 1) {
       const pu = .5 + .5 * Math.sin(S.t * 8);
@@ -895,11 +927,16 @@ const UI = (() => {
   });
   BUS.on('panic', (e, en) => { toast('EXCEPTION - ROLLED BACK ' + (en && en.name || '?'), clip(String(e && e.message || e || ''), 60), K.red, 3); sfx('glitch'); });
   BUS.on('patch:cure', p => { if (p && p.kind === 'bug' && S.mode === 'play') toast('PATCH REVERTED', p.name, K.grn, 2.4); });
+  // banners live in gameplay only: they hold while paused and are dropped when another screen takes over
+  BUS.on('scene', name => { if (name !== 'play' && name !== 'pause') banners.length = 0; });
   function drawBanner(dt) {
-    const b = banners[0]; if (!b) return; b.t += dt; if (b.t >= b.d) { banners.shift(); return; }
+    const b = banners[0]; if (!b) return; if (S.mode !== 'play') return; b.t += dt; if (b.t >= b.d) { banners.shift(); return; }
     const tin = sstep(0, 1, b.t / .3), tout = sstep(0, 1, (b.d - b.t) / .32), e = Math.min(tin, tout);
     let sc = 3; while (sc > 1 && GFX.textW(b.title, sc) > W - 20) sc--;
-    const th = 8 * sc, y = 62, bh = th + (b.sub ? 24 : 12), by = y - 6, h = Math.max(1, bh * e), hy = by + (bh - h) / 2;
+    // bosses hover in the upper third: during a boss fight the banner drops below them (decided once per banner)
+    if (b.y == null) { let boss = !!(S.boss && !S.boss.dead && S.boss.y < 150); try { boss = boss || (DIR.state.phase === 'boss' && !S.boss); } catch (e) { }
+      b.y = boss ? 176 : 62; }
+    const th = 8 * sc, y = b.y, bh = th + (b.sub ? 24 : 12), by = y - 6, h = Math.max(1, bh * e), hy = by + (bh - h) / 2;
     GFX.rectA(0, hy, W, h, K.black, .62);
     const lw = W * e; GFX.rect((W - lw) / 2, hy - 1, lw, 1, K.cyan); GFX.rect((W - lw) / 2, hy + h, lw, 1, K.mag);
     if (e < .25) return;
@@ -951,14 +988,26 @@ const UI = (() => {
       }
     }
   }
+  // scene transition: a quick CRT "raster open" — the new screen grows from a bright centre line (not for pause toggles / death)
+  const TR = { t: 0, d: .24 };
+  BUS.on('scene', (n, prev) => { if (prev && prev !== 'boot' && n !== 'pause' && n !== 'over' && !(n === 'play' && prev === 'pause')) TR.t = TR.d; });
+  function drawTrans(dt) {
+    if (TR.t <= 0) return; const k = sstep(0, 1, 1 - TR.t / TR.d); TR.t -= dt;
+    const hh = Math.max(1, Math.round(H / 2 * k)), y0 = (H >> 1) - hh, y1 = (H >> 1) + hh;
+    if (y0 > 0) fb.fill(0xff000000, 0, y0 * W); if (y1 < H) fb.fill(0xff000000, y1 * W);
+    const c = GFX.scale(K.cyan, 1 - k * .6); GFX.rect(0, y0 - 1, W, 1, c); GFX.rect(0, y1, W, 1, c);
+    if (k < .5) GFX.rectA(0, y0, W, y1 - y0, K.white, (.5 - k) * .9);
+  }
   function overlay(dt) {
     dt = dt || 0;
     if (IN.hit('Backquote')) showFps = !showFps;
+    if (S.mode === 'play' && IN.touch && IN.click && IN.my < 20 && IN.mx > W - 34 && !RUN.deadT) { sfx('back'); SCENE.go('pause'); }
     if (dt > 0) fps += (1 / dt - fps) * .05;
     drawSticks();
-    if (S.mode !== 'patch') drawTicks(dt); else ticks.length = 0;
+    if (S.mode === 'play') drawTicks(dt); else if (S.mode !== 'pause') ticks.length = 0;   // held while paused
     drawBanner(dt);
     drawToasts(dt);
+    drawTrans(dt);
     if (S.opt.mute) txr('MUTE', W - 3, S.mode === 'play' ? 18 : 262, K.dim);
     if (showFps) txs((fps + .5 | 0) + ' FPS  GEN ' + LIVE.gen, 3, S.mode === 'play' ? 18 : 262, fps < 50 ? K.red : K.grn);
   }

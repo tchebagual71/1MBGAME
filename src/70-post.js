@@ -88,6 +88,7 @@ float corner(vec2 q) { float rad = .035 * uOut.y; vec2 hp = abs(q - .5) * uOut, 
 vec2 glitch(vec2 p, float g, out float sp, out float bu) {
   sp = 0.; bu = 0.;
   if (g < .002) return p;
+  g *= p.y < 17. || p.y > 261. ? .3 : 1.;                                           // keep the HUD rows legible
   float ts = floor(uTime * 14.);
   float bh = 2. + floor(hash(vec2(ts, 1.7)) * 14.), band = floor(p.y / bh);
   float k = step(1. - .6 * g * sqrt(g), hash(vec2(band, ts)));                       // torn bands
@@ -158,9 +159,22 @@ vec2 glitch(vec2 p, float g, out float sp, out float bu) {
 
   function sizeCanvas() { if (cv && (cv.width !== VIEW.w || cv.height !== VIEW.h)) { cv.width = VIEW.w; cv.height = VIEW.h; } }
 
+  // portrait phones: the 16:9 picture is letterboxed small — say so, below the picture (DOM, never intercepts touches)
+  let hint = null;
+  function portraitHint() {
+    try {
+      const tall = innerHeight > innerWidth * 1.15, touch = IN.touch || (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+      if (!hint) { if (!(tall && touch)) return; hint = document.createElement('div');
+        hint.textContent = '↻  ROTATE FOR A BIGGER PICTURE  ↺';
+        hint.style.cssText = 'position:fixed;left:0;right:0;text-align:center;font:bold 12px/1.4 monospace;letter-spacing:2px;color:#3cf0ff;opacity:.55;pointer-events:none;user-select:none';
+        document.body.appendChild(hint); }
+      const r = cv.getBoundingClientRect();
+      hint.style.display = tall && touch ? 'block' : 'none'; hint.style.top = Math.round(r.bottom + Math.min(40, (innerHeight - r.bottom) * .3)) + 'px';
+    } catch (e) { }
+  }
   function init(canvas) {
     cv = canvas || CV; sizeCanvas();
-    BUS.on('resize', sizeCanvas);
+    BUS.on('resize', sizeCanvas); BUS.on('resize', portraitHint); portraitHint();
     const opt = { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: false, preserveDrawingBuffer: false, powerPreference: 'high-performance' };
     for (const m of ['webgl2', 'webgl', 'experimental-webgl']) { try { gl = cv.getContext(m, opt); } catch (e) { gl = null; } if (gl) { st.mode = m === 'experimental-webgl' ? 'webgl' : m; break; } }
     if (gl) {
@@ -198,23 +212,31 @@ vec2 glitch(vec2 p, float g, out float sp, out float bu) {
     }
     wasCrt = crt;
     const u = pass(M, null, ow, oh); bind(0, image); bind(1, tB[0]);
-    const sh = S.shake > .05 ? S.shake : 0, an = Math.random() * TAU, sm = sh * (.6 + .4 * Math.random());
+    const sh = shakeAmt(dt), an = Math.random() * TAU, sm = sh * (.6 + .4 * Math.random());
     gl.uniform2f(u.uOut, ow, oh); gl.uniform2f(u.uScale, Math.max(1, ow / W), Math.max(1, oh / H));
     gl.uniform2f(u.uShake, Math.cos(an) * sm, Math.sin(an) * sm);
-    gl.uniform1f(u.uTime, S.t % 3600); gl.uniform1f(u.uFlash, clamp(S.flash || 0, 0, 1)); gl.uniform1f(u.uGlitch, clamp(S.glitch || 0, 0, 1)); gl.uniform1f(u.uBeat, clamp(S.beat || 0, 0, 1));
+    gl.uniform1f(u.uTime, S.t % 3600); gl.uniform1f(u.uFlash, flashAmt()); gl.uniform1f(u.uGlitch, clamp(S.glitch || 0, 0, 1)); gl.uniform1f(u.uBeat, clamp(S.beat || 0, 0, 1));
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
+  // comfort limits: soft-knee shake (S.shake stays raw for gameplay), sustained shake fatigue, flash ceiling
+  let shAvg = 0;
+  function shakeAmt(dt) {
+    const s = S.shake > .05 ? S.shake : 0; shAvg += (s - shAvg) * clamp((dt || 1 / 60) * 1.2, 0, 1);
+    const soft = s < 4 ? s : 4 + (s - 4) * .45, tired = 1 / (1 + Math.max(0, shAvg - 2.5) * .3);
+    return Math.min(9, soft * tired);
+  }
+  const flashAmt = () => { const f = clamp(S.flash || 0, 0, 1); return f * (.75 - .25 * f); };   // 1 -> .5
   function present2D() {
     const w = cv.width, h = cv.height, sx = w / W, sy = h / H;
     offC.putImageData(img, 0, 0);
     c2.imageSmoothingEnabled = false; c2.fillStyle = '#000'; c2.fillRect(0, 0, w, h);
-    const sh = S.shake > .05 ? S.shake : 0, an = Math.random() * TAU, dx = Math.round(Math.cos(an) * sh * sx), dy = Math.round(Math.sin(an) * sh * sy);
+    const sh = shakeAmt(S.dt), an = Math.random() * TAU, dx = Math.round(Math.cos(an) * sh * sx), dy = Math.round(Math.sin(an) * sh * sy);
     c2.drawImage(off, dx, dy, w, h);
     const g = clamp(S.glitch || 0, 0, 1), n = g > .05 ? Math.round(g * g * 10 + Math.random() * g * 3) : 0;
     for (let i = 0; i < n; i++) { const y = Math.random() * H | 0, bh = 1 + Math.random() * 12 | 0, o = (Math.random() - .5) * (4 + 60 * g * g);
       c2.drawImage(off, 0, y, W, bh, Math.round(dx + o * sx), Math.round(dy + y * sy), w, Math.ceil(bh * sy)); }
-    const fl = clamp(S.flash || 0, 0, 1);
+    const fl = flashAmt();
     if (fl > .01) { c2.globalAlpha = fl; c2.fillStyle = '#fff'; c2.fillRect(0, 0, w, h); c2.globalAlpha = 1; }
   }
 
