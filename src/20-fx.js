@@ -279,7 +279,7 @@ for (let x = 0; x < W; x++) {
   jit('metaballs', { NB: 7, RAD: 14, GAIN: 70, SPD: .55 }, `
 const f8 = Z.f8, dx2 = Z.dx2, dy2 = Z.dy2, r2 = Z.r2, FWh = ${HW};
 for (let j = 0; j < NB; j++) {
-  const bx = FWh / 2 + Math.sin(t * SPD * (1 + j * .21) + j * 1.7) * (60 + j * 7), by = ${HH / 2} + Math.cos(t * SPD * (.8 + j * .17) + j * 2.9) * (36 + j * 3);
+  const bx = FWh / 2 + Math.sin(t * SPD * (1 + j * .21) + j * 1.1) * (60 + j * 7), by = ${HH / 2} + Math.cos(t * SPD * (.7 + j * .131) + j * 1.93) * (36 + j * 3);
   for (let x = 0; x < FWh; x++) dx2[j * FWh + x] = (x - bx) * (x - bx);
   Z.by[j] = by; r2[j] = RAD * RAD * (.6 + .4 * Math.sin(j * 1.3 + t * .4) + .9 * (j & 1)) * (1 + b * .12 + k * .5);
 }

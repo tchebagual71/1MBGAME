@@ -215,11 +215,11 @@ const DIR = (() => {
     BOSS[key] = cfg;
     ENT.def('boss.' + key, {
       boss: true, name: cfg.name, team: T_ENEMY, r: cfg.r, hp: cfg.hp, score: cfg.score, layer: 2,
-      init(e) { e.boss = true; e.name = cfg.name; e.hp = Math.round(cfg.hp * DIR.HPK); e.maxhp = e.hp; e.ph = 0; e.pt = 0; e.tm = {}; e.inv = 0; e.intro = 1.6; e.r0 = cfg.r; e.r = 0;
+      init(e) { e.boss = true; e.name = cfg.name; e.hp = Math.round(cfg.hp * DIR.HPK); e.maxhp = e.hp; e.ph = 0; e.pt = 0; e.tm = {}; e.inv = 0; e.intro = 1.6; e.r0 = cfg.r; e.harmless = true;
         e.hx = cfg.home ? cfg.home[0] : CX; e.hy = cfg.home ? cfg.home[1] : 70; e.bugs = []; e.parts = []; if (cfg.init) cfg.init(e); },
       update(e, dt) {
         const p = P();
-        if (e.intro > 0) { e.intro -= dt; e.x = lerp(e.x, e.hx, 1 - Math.pow(.03, dt)); e.y = lerp(e.y, e.hy, 1 - Math.pow(.03, dt)); if (e.intro <= 0) { e.r = e.r0; sfx('boss'); kick(1); } if (cfg.idle) cfg.idle(e, dt); return; }
+        if (e.intro > 0) { e.intro -= dt; e.x = lerp(e.x, e.hx, 1 - Math.pow(.03, dt)); e.y = lerp(e.y, e.hy, 1 - Math.pow(.03, dt)); if (e.intro <= 0) { e.harmless = false; sfx('boss'); kick(1); } if (cfg.idle) cfg.idle(e, dt); return; }
         for (const k in e.tm) e.tm[k] -= dt;
         if (e.inv > 0) e.inv -= dt;
         const th = cfg.ph, ratio = e.hp / e.maxhp;
@@ -263,12 +263,12 @@ const DIR = (() => {
     S.flash = Math.max(S.flash, .6); S.shake = Math.max(S.shake, 12); kick(2); sfx('bigkill');
     st.log.push('bossdead:' + cfg.name);
   }
-  const partDef = (type, o) => ENT.def(type, Object.assign({ team: T_ENEMY, layer: 1, r: 10, hp: 1e9, score: 0, update() { } }, o));
+  const partDef = (type, o) => ENT.def(type, Object.assign({ team: T_ENEMY, layer: 1, r: 10, hp: 1e9, score: 0, seg: true, update() { } }, o));
   // forwarders: parts that pass damage on to the boss with a multiplier
   function fwd(e, d, src, k) { const b = e.parent; if (!b || b.dead) return false; e.flash = .08; if (b.intro > 0 || b.inv > 0 || k <= 0) { block(e, src); return false; } ENT.damage(b, d * k, src); return false; }
 
   // ---------- 0: BOOTSTRAP — shielded core, rotating plates block shots by angle ----------
-  defBoss('boot', { name: 'BOOTSTRAP', r: 30, hp: 420, score: 5000, ph: [.62, .3], c: rgb(255, 170, 60), home: [CX, 72], fxp: ['tunnel', 'tunnel', 'rotozoom'],
+  defBoss('boot', { name: 'BOOTSTRAP', r: 30, hp: 360, score: 5000, ph: [.62, .3], c: rgb(255, 170, 60), home: [CX, 72], fxp: ['tunnel', 'tunnel', 'rotozoom'],
     phn: ['ROTATING SHIELD', 'COUNTER-SPIN // ADDS', 'VENTING CORE'],
     init(e) { e.rot = 0; e.pw = .52; e.open = 0; },
     idle(e, dt) { e.rot += dt; },
@@ -310,7 +310,7 @@ const DIR = (() => {
   }`);
 
   // ---------- 1: MALLOC — block cluster that frees fragments, allocation walls ----------
-  partDef('boss.frag', { layer: 2, r: 10, hp: 80, score: 400,
+  partDef('boss.frag', { layer: 2, r: 10, hp: 80, score: 400, seg: false,
     init(e) { e.oa = e.oa || 0; e.os = e.os || 1; e.tm = {}; },
     update(e, dt) { const b = e.parent; if (!b || b.dead) { e.dead = true; return; } for (const q in e.tm) e.tm[q] -= dt; e.oa += e.os * dt; const R = e.R || 62;
       e.x = lerp(e.x, b.x + Math.cos(e.oa) * R, 1 - Math.pow(.05, dt)); e.y = lerp(e.y, b.y + Math.sin(e.oa) * R * .8, 1 - Math.pow(.05, dt)); },
@@ -697,7 +697,7 @@ const DIR = (() => {
       const done = w.i >= w.steps.length && !w.jobs.length;
       if (done && n === 0) { w.clr += dt; if (w.clr > CLEAR_HOLD) { st.phase = 'clear'; st.t = 0; banner('WAVE CLEARED', 'SECTOR ' + st.sector + ' // ' + SECTORS[st.sector].waves[st.wave].name + ' OK', 1.4); sfx('levelup'); } }
       else w.clr = 0;
-      if (done && n > 0 && w.t > w.end + STALL_T) { ENT.each(T_ENEMY, e => ENT.kill(e, null)); st.log.push('stall:' + st.sector + '.' + st.wave); }
+      if (done && n > 0 && w.t > w.end + STALL_T) { ENT.each(T_ENEMY, e => ENT.kill(e, e)); st.log.push('stall:' + st.sector + '.' + st.wave); }
       return;
     }
     if (st.phase === 'clear') { if (st.t > BREATHER) { const nw = st.wave + 1; goPatch(nw < SECTORS[st.sector].waves.length ? { type: 'wave', w: nw } : { type: 'boss' }); } return; }
@@ -712,7 +712,7 @@ const DIR = (() => {
   function wipe(keepRev) {
     if (st.boss) { const e = st.boss; cureBugs(e); killParts(e); e.dead = true; }
     for (const e of ENT.list) if (e.boss || (e.T && e.T.boss) || e.type === 'boss.seg' || e.type === 'boss.twinB' || e.type === 'boss.frag') e.dead = true;
-    ENT.each(T_ENEMY, e => { e.dead = true; }); ENT.each(T_ESHOT, e => { e.dead = true; });
+    ENT.each(T_ENEMY, e => { if (e.type === 'mutator') ENT.kill(e, e); else e.dead = true; }); ENT.each(T_ESHOT, e => { e.dead = true; });
     cleanupBugs(); if (keepRev) restoreUp(); else st.rev = null;
     HZ.length = 0; S.boss = null; st.boss = null; st.w = null; st.next = null; st.outro = null; kfxOK = false;
   }

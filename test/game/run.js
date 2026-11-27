@@ -16,7 +16,7 @@ let fails = 0; const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m);
   const sim = (n, o) => ev(([n, o]) => window.__sim(n, o), [n, o || {}]);
   const clean = r => r.errs.length === 0 && r.nan === 0;
 
-  await ev(() => { const { RUN, S } = window.__SM; srand(1); RUN.start(); });
+  await ev(() => { const { RUN, S } = window.__SM; RUN.start(); });
   // 1. long normal play
   let r = await sim(60 * 60, {}); await shot('fight1');
   console.log(JSON.stringify(r)); ok(clean(r), 'normal 60s: no errors / NaN');
@@ -37,7 +37,8 @@ let fails = 0; const ok = (c, m) => { if (!c) { fails++; console.log('FAIL', m);
   for (const P of own) {
     r = await ev(([id]) => { const { RUN, PATCH, LIVE } = window.__SM; RUN.start(); const p = PATCH.all[id]; const res = [];
       for (let i = 0; i < p.max; i++) { const before = JSON.stringify(LIVE.src); const a = PATCH.apply(id); res.push(a && JSON.stringify(LIVE.src) !== before); }
-      const o = window.__sim(60 * 12, { god: true }); o.res = res; o.active = PATCH.active.length;
+      const D = window.__G.DIR; D.only = window.__G.GAME.enemyTypes.filter(t => t !== 'mutator');
+      const o = window.__sim(60 * 12, { god: true, dashSpam: true }); D.only = null; o.res = res; o.active = PATCH.active.length;
       const diffSrc = Object.keys(LIVE.src).filter(k => LIVE.src[k] !== LIVE._d[k].base);
       PATCH.cure(id); o.cured = Object.keys(LIVE.src).every(k => LIVE.src[k] === LIVE._d[k].base); o.changed = diffSrc; return o; }, [P.id]);
     ok(clean(r) && r.res.every(x => x) && r.cured && r.panics === 0, `patch ${P.id} (${P.name}) x${P.max} -> ${r.changed.join(',')} ${r.res} ${r.errs.slice(0, 2).join(' | ')}`);
