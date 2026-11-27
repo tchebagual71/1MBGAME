@@ -816,15 +816,23 @@ e.rot = Math.sin(e.age * 3) * .3;`,
   up('ram', 'DASH_STRIKE', '+ p.ram = 8 * tier : dash through enemies', { weight: .6, apply: () => hook('ply.dash', 'dash', 'p.ram = 8 * GAME.tier();') });
   up('hp', 'MALLOC(HP)', 'MAXHP+=1 : +1 max hp, heal 1', { max: 3, weight: 1.2,
     apply() { const ok = tune('ply.tick', 'MAXHP', v => v + 1); const p = S.player; if (ok && p && !p.dead) { p.maxhp++; p.hp = Math.min(p.maxhp, p.hp + 1); } return ok; } });
-  up('regen', 'GARBAGE_COLLECT', 'REGEN+=.012 : regenerate 1 hp / 80s', { max: 2, apply: () => tune('ply.tick', 'REGEN', v => v + .012) });
+  up('regen', 'GARBAGE_COLLECT', 'REGEN+=.007 : regenerate 1 hp / 140s', { max: 2, apply: () => tune('ply.tick', 'REGEN', v => v + .007) });
   up('orbit', 'ORBITALS', 'ORBITALS+=2 : satellites shred contacts', { max: 3, apply: () => tune('ply.tick', 'ORBITALS', v => v + 2) });
-  up('magnet', 'WIDE_BUS', 'MAGNET*=1.8 : pull bits from afar', { max: 2, weight: .8, apply: () => tune('ply.tick', 'MAGNET', v => Math.round(v * 1.8)) });
-  up('ecc', 'ECC_MEMORY', 'BLOCK+=.2 : chance to ignore a hit', { max: 2, apply: () => tune('ply.hurt', 'BLOCK', v => v + .2) });
+  up('magnet', 'WIDE_BUS', 'MAGNET*=1.8, DEFRAG->900 : pull bits, slow self-repair', { max: 2, weight: .8,
+    apply: () => tune('ply.tick', 'MAGNET', v => Math.round(v * 1.8)) && tune('ply.bit', 'DEFRAG', v => v ? Math.round(v * .85) : 900) });
+  up('ecc', 'ECC_MEMORY', 'BLOCK+=.13 : chance to ignore a hit', { max: 2, apply: () => tune('ply.hurt', 'BLOCK', v => v + .13) });
   up('thorns', 'THORNS.EXE', '+ GAME.explode(p, 80, 14 * tier) : getting hit detonates', { weight: .6, apply: () => hook('ply.hurt', 'hurt', 'GAME.explode(p.x, p.y, 80, 14 * GAME.tier(), T_PSHOT);') });
   up('bullettime', 'BULLET_TIME', '+ GAME.slow(1.5) : time slows when hit', { weight: .6, apply: () => hook('ply.hurt', 'hurt', 'GAME.slow(1.5);') });
-  up('leech', 'LIFESTEAL', 'LEECH+=.006 : kills may heal', { max: 2, apply: () => tune('ply.kill', 'LEECH', v => v + .006) });
-  up('bits', 'DEFRAG.EXE', 'DEFRAG=0 -> 450 : every 450 bits heals 1', { max: 2, weight: .8, apply: () => tune('ply.bit', 'DEFRAG', v => v ? Math.round(v * .65) : 450) });
+  up('leech', 'LIFESTEAL', 'LEECH+=.003 : kills may heal', { max: 2, apply: () => tune('ply.kill', 'LEECH', v => v + .003) });
+  up('bits', 'DEFRAG.EXE', 'DEFRAG=0 -> 650 : every 650 bits heals 1', { max: 2, weight: .8, apply: () => tune('ply.bit', 'DEFRAG', v => v ? Math.round(v * .65) : 650) });
   up('cascade', 'CASCADE', '+ 3x GAME.shoot(homing) : kills spawn seekers', { weight: .5, apply: () => hook('ply.kill', 'kill', 'for (let i = 0; i < 3; i++) GAME.shoot(e.x, e.y, Math.cos(i * 2.1) * 200, Math.sin(i * 2.1) * 200, { team: T_PSHOT, dmg: GAME.tier(), homing: 7 });') });
+
+  // bad-luck protection: core damage patches get offered more often when the build is behind the curve
+  // (a run with no damage picks by sector 3 turned every boss into a 200 s+ slog)
+  const DPS_UPS = ['dmg', 'rate', 'fork', 'crit'];
+  for (const id of DPS_UPS) { const p = PATCH.all[id], w0 = p.weight;
+    Object.defineProperty(p, 'weight', { configurable: true, enumerable: true, set() { },
+      get() { let n = 0; for (const a of PATCH.active) if (DPS_UPS.includes(a)) n++; return w0 * (1 + Math.max(0, (S.sector + 1) * 1.6 - n) * .6); } }); }
 
   // --- bugs (injected by mutators / bosses; cured on kill) ---
   bug('b_invert', '0xDEAD: INVERT_AXIS', 'mx = IN.mvx -> mx = -IN.mvx', { apply: () => LIVE.patch('ply.move', 'let mx = IN.mvx, my = IN.mvy;', 'let mx = -IN.mvx, my = -IN.mvy;') });

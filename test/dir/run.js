@@ -49,7 +49,7 @@ const mode = process.argv[2] || 'all';
         if (f % 30 === 0) for (const e of ENT.list) if (!e.dead && !(isFinite(e.x) && isFinite(e.y) && isFinite(e.hp))) { R.nan++; break; }
       }
       R.bugsAfter = PATCH.bugs().length; R.errs = T.errs.slice(0, 5); R.nErr = T.errs.length; R.mode = S.mode; R.log = DIR.state.log.filter(s => !s.startsWith('wave')).join(' ');
-      R.music = R.mus.join(','); delete R.mus;
+      R.music = R.mus.join(','); delete R.mus; AU.music = am; AU.intensity = ai;   // unwrap: later sections call AU.music
       return R;
     });
     console.log(JSON.stringify(r, null, 1).slice(0, 2500));

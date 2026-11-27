@@ -1,6 +1,8 @@
 // ===== 50-dir.js : DIR — campaign director: sectors, composed wave scripts, bosses =====
 const DIR = (() => {
   const X0 = 8, X1 = 472, Y0 = 20, Y1 = 262, CX = 240, CY = 141;
+  // wave script time scale: early sectors (weak guns, long mop-up) run tighter, late ones (instant kills) stretch
+  const pace = () => DIR.PACE * (.9 + .05 * st.sector);
   const REPAIR_SECTORS = 1;   // BOOT SECTOR self-test: +1 hp per cleared wave (teaching sector)
   const HEAL = 1, BREATHER = 1.3, INTRO_T = 2.8, WARN_T = 2.3, CLEAR_HOLD = .8, STALL_T = 45;
 
@@ -276,7 +278,7 @@ const DIR = (() => {
   function fwd(e, d, src, k) { const b = e.parent; if (!b || b.dead) return false; e.flash = .08; if (b.intro > 0 || b.inv > 0 || k <= 0) { block(e, src); return false; } ENT.damage(b, d * k, src); return false; }
 
   // ---------- 0: BOOTSTRAP — shielded core, rotating plates block shots by angle ----------
-  defBoss('boot', { name: 'BOOTSTRAP', r: 30, hp: 205, score: 5000, ph: [.62, .3], c: rgb(255, 170, 60), home: [CX, 72], fxp: ['tunnel', 'tunnel', 'tunnel'],
+  defBoss('boot', { name: 'BOOTSTRAP', r: 30, hp: 225, score: 5000, ph: [.62, .3], c: rgb(255, 170, 60), home: [CX, 72], fxp: ['tunnel', 'tunnel', 'tunnel'],
     phn: ['ROTATING SHIELD', 'COUNTER-SPIN // ADDS', 'VENTING CORE'],
     init(e) { e.rot = 0; e.pw = .52; e.open = 0; },
     idle(e, dt) { e.rot += dt; },
@@ -330,7 +332,7 @@ const DIR = (() => {
         GFX.fill(POLY.square, e.x + ox, e.y + oy, e.age * 1.5, 4 * s, rgb(50, 10, 40)); ol(POLY.square, e.x + ox, e.y + oy, e.age * 1.5, 4 * s, c); }
       GFX.glow(e.x, e.y, 12 * s, c, .5 + S.beat * .3); },
     die(e) { if (typeof GAME !== 'undefined') { GAME.explode(e.x, e.y, 22, 0, T_PSHOT); GAME.dropBits(e.x, e.y, 4); } } });
-  defBoss('malloc', { name: 'MALLOC//FREE', r: 27, hp: 680, score: 9000, ph: [.66, .33], c: rgb(120, 255, 140), home: [CX, 80], fxp: ['feedback', 'feedback', 'metaballs'],
+  defBoss('malloc', { name: 'MALLOC//FREE', r: 27, hp: 800, score: 9000, ph: [.66, .33], c: rgb(120, 255, 140), home: [CX, 80], fxp: ['feedback', 'feedback', 'metaballs'],
     phn: ['ALLOCATING', 'FREE() // FRAGMENTS', 'HEAP CORRUPTION'],
     init(e) { e.vx = 38; e.vy = 22; e.blk = 9; },
     move(e, p, dt) { const sp = [1, 1.25, 1.5][e.ph]; e.x += e.vx * sp * dt; e.y += e.vy * sp * dt;
@@ -366,7 +368,7 @@ const DIR = (() => {
     for (const f of e.parts) if (!f.dead && k.cd(f, 'f', FRAG_EVERY, rnd() * FRAG_EVERY)) k.shot(f.x, f.y, k.aim(f, p), FRAG_SPD, C2);
   } else {
     if (k.cd(e, 'ring', RING_EVERY * .9)) { const a = rnd() * TAU; k.ring(e.x, e.y, 16, RING_SPD, a, C1, 3, k.aim(e, p)); e.echo = .5; e.ea = a + PI / 16; }
-    if (e.echo > 0 && (e.echo -= dt) <= 0) k.ring(e.x, e.y, 16, RING_SPD * .8, e.ea, C2, 3, k.aim(e, p) + .4);
+    if (e.echo > 0 && (e.echo -= dt) <= 0) k.ring(e.x, e.y, 12, RING_SPD * .8, e.ea, C2, 3, k.aim(e, p) + .4);
     if (k.cd(e, 'wall', WALL_EVERY * 1.6)) k.wall('T', rndr(40, 440), WALL_GAP + 10, WALL_SPD * .85, C1);
     for (const f of e.parts) if (!f.dead && k.cd(f, 'f', FRAG_EVERY * 1.3, rnd() * 2)) k.fan(f.x, f.y, k.aim(f, p), 3, .35, FRAG_SPD, C2);
   }`);
@@ -379,7 +381,7 @@ const DIR = (() => {
       GFX.fill(POLY.hex, e.x, e.y, e.a || 0, 7 * s, rgb(50, 12, 10)); ol(POLY.hex, e.x, e.y, e.a || 0, 7 * s, c);
       GFX.glow(e.x, e.y, (tail ? 13 : 7) * s, c, tail ? .7 + S.beat * .3 : .35);
       if (tail && ((S.t * 4) | 0) & 1) GFX.textC('TOS', e.x, e.y - 16, rgb(255, 230, 80)); } });
-  defBoss('stack', { name: 'STACK SMASHER', r: 15, hp: 1400, score: 14000, ph: [.66, .33], c: rgb(255, 80, 80), infect: true, home: [CX, 80], fxp: ['fire', 'fire', 'kefrens'],
+  defBoss('stack', { name: 'STACK SMASHER', r: 15, hp: 1750, score: 14000, ph: [.66, .33], c: rgb(255, 80, 80), infect: true, home: [CX, 80], fxp: ['fire', 'fire', 'kefrens'],
     phn: ['PUSH PUSH PUSH', 'POP // BUFFER OVERRUN', 'RET2LIBC CHARGE'],
     init(e) { e.ha = PI / 2; e.tx = CX; e.ty = CY; e.trail = []; e.spd = 72; e.charge = 0;
       for (let i = 0; i < 14; i++) { const q = ENT.spawn('boss.seg', e.x, e.y - i * 11, { parent: e, idx: i, sz: 1 - i * .025 }); if (q) e.parts.push(q); } },
@@ -427,7 +429,7 @@ const DIR = (() => {
   }`);
 
   // ---------- 3: IRQ CLOCK — clock face firing on the beat, hands are sweeping beams ----------
-  defBoss('irq', { name: 'IRQ CLOCK', r: 32, hp: 3000, score: 20000, ph: [.62, .3], c: rgb(255, 230, 80), infect: true, home: [CX, 82], fxp: ['rotozoom', 'rotozoom', 'copper'],
+  defBoss('irq', { name: 'IRQ CLOCK', r: 32, hp: 3700, score: 20000, ph: [.62, .3], c: rgb(255, 230, 80), infect: true, home: [CX, 82], fxp: ['rotozoom', 'rotozoom', 'copper'],
     phn: ['TIMER INTERRUPT', 'NMI // NON-MASKABLE', 'DOUBLE FAULT'],
     init(e) { e.vec = 0; e.tpx = 0; e.tp = 0; },
     move(e, p, dt) {
@@ -468,7 +470,7 @@ const DIR = (() => {
   }`);
 
   // ---------- 4: GARBAGE COLLECTOR — mark & sweep: marks burst, laser lines sweep with gaps ----------
-  defBoss('gc', { name: 'GARBAGE COLLECTOR', r: 18, hp: 4500, score: 28000, ph: [.62, .3], c: rgb(200, 120, 255), infect: true, home: [CX, 46], fxp: ['moire', 'moire', 'voxel'],
+  defBoss('gc', { name: 'GARBAGE COLLECTOR', r: 18, hp: 5300, score: 28000, ph: [.62, .3], c: rgb(200, 120, 255), infect: true, home: [CX, 46], fxp: ['moire', 'moire', 'voxel'],
     phn: ['MARK', 'SWEEP // COMPACT', 'STOP THE WORLD'],
     init(e) { e.dir = 1; },
     move(e, p, dt) { const sp = [55, 70, 40][e.ph]; e.x += e.dir * sp * dt; if (e.x > 400) e.dir = -1; if (e.x < 80) e.dir = 1; e.y = lerp(e.y, e.ph === 2 ? 70 : 46, dt); },
@@ -519,7 +521,7 @@ const DIR = (() => {
       GFX.textC('LOCKED', e.x, e.y - 36, rgb(160, 200, 255)); }
     else if (((S.t * 5) | 0) & 1) GFX.textC('OPEN', e.x, e.y - 34, rgb(255, 255, 120));
   }
-  defBoss('twin', { name: 'MUTEX & SEMAPHORE', r: 16, hp: 3600, score: 40000, ph: [.62, .3], c: rgb(70, 220, 255), infect: true, home: [CX - 150, 120], fxp: ['lens', 'lens', 'tunnel'],
+  defBoss('twin', { name: 'MUTEX & SEMAPHORE', r: 16, hp: 3900, score: 40000, ph: [.62, .3], c: rgb(70, 220, 255), infect: true, home: [CX - 150, 120], fxp: ['lens', 'lens', 'tunnel'],
     phn: ['MUTUAL EXCLUSION', 'LINKED // RACE CONDITION', 'DEADLOCK'],
     init(e) { e.th = PI; e.lock = 1; const q = ENT.spawn('boss.twinB', CX + 150, -30, { parent: e }); if (q) e.parts.push(q); },
     idle(e, dt) { const q = e.parts[0]; if (q) { q.x = lerp(q.x, CX + 150, 1 - Math.pow(.03, dt)); q.y = lerp(q.y, 120, 1 - Math.pow(.03, dt)); } },
@@ -552,7 +554,7 @@ const DIR = (() => {
     apply() { if (typeof FX === 'undefined' || typeof FX.cur !== 'string') return false; const nm = 'fx.' + FX.cur, s = LIVE.src[nm]; if (!s) return false;
       const m = (s.match(/\b[A-Z][A-Z0-9_]*\s*=\s*\d*\.?\d+/g) || []).filter(t => { const v = +t.split('=')[1]; return v > 0 && v < 1e4; }); if (!m.length) return false;
       const t = pick(m), v = +t.split('=')[1], nv = v * 1.75 + (v < 1 ? .2 : 0); return LIVE.patch(nm, t, t.split('=')[0] + '=' + (Number.isInteger(v) ? Math.round(nv) : +nv.toFixed(3))); } });
-  defBoss('kernel', { name: 'KERNEL', r: 30, hp: 14500, score: 100000, ph: [.75, .5, .25], c: rgb(255, 255, 255), infect: true, final: true, home: [CX, 78], fxp: ['matrix', 'matrix', 'plasma', 'feedback'],
+  defBoss('kernel', { name: 'KERNEL', r: 30, hp: 16000, score: 100000, ph: [.75, .5, .25], c: rgb(255, 255, 255), infect: true, final: true, home: [CX, 78], fxp: ['matrix', 'matrix', 'plasma', 'feedback'],
     phn: ['SYSCALL', 'REWRITE // REVERTING YOU', 'SELF.MOD', 'KERNEL PANIC'],
     init(e) { e.eye = 0; e.code = (LIVE.src['boss.kernel'] || 'KERNEL').replace(/\s+/g, '').slice(0, 400); },
     move(e, p, dt) { const sp = [.35, .45, .5, .6][e.ph]; e.hx = CX + Math.sin(e.age * sp) * 110; e.hy = 78 + Math.sin(e.age * sp * 2) * 22;
@@ -591,7 +593,7 @@ const DIR = (() => {
   }
   LIVE.def('boss.kernel', 'e,p,dt,k', `
   const SP_RATE = .13, ARMS = 4, SP_SPD = 76, FAN_EVERY = 2.1, FAN_SPD = 98;
-  const WALL_EVERY = 3.1, WALL_SPD = 52, GAP_W = 62, RING_EVERY = 2.4, SWAP_EVERY = 6.5;
+  const WALL_EVERY = 3.1, WALL_SPD = 52, GAP_W = 62, RING_EVERY = 2.4, SWAP_EVERY = 6.5, MARK_EVERY = 3.4;
   const C = [rgb(80, 230, 255), rgb(255, 80, 220), rgb(120, 255, 140), rgb(255, 60, 70)][e.ph], CW = rgb(255, 255, 255);
   const FXS = ['matrix', 'plasma', 'tunnel', 'rotozoom', 'kefrens', 'moire', 'twister', 'fire'];
   if (e.ph === 0) {
@@ -601,22 +603,24 @@ const DIR = (() => {
   } else if (e.ph === 1) {
     if (k.cd(e, 'wall', WALL_EVERY, 1)) { const sd = pick(['T', 'L', 'R']); k.wall(sd, sd === 'T' ? rndr(60, 420) : rndr(50, 230), GAP_W, WALL_SPD, C); }
     if (k.cd(e, 'ring', RING_EVERY)) k.ring(e.x, e.y, 22, 60, rnd() * TAU, CW, 4, k.aim(e, p) + rndr(-.6, .6));
-    if (k.cd(e, 'beam', 10, 3)) { const a = k.aim(e, p) + PI / 2; k.beam({ owner: e, a, warn: 1.3, dur: 3.4, spin: .3, c: C }); k.beam({ owner: e, a: a + PI, warn: 1.3, dur: 3.4, spin: .3, c: C }); }
+    if (k.cd(e, 'beam', 8, 3)) { const a = k.aim(e, p) + PI / 2; k.beam({ owner: e, a, warn: 1.3, dur: 3.4, spin: .3, c: C }); k.beam({ owner: e, a: a + PI, warn: 1.3, dur: 3.4, spin: .3, c: C }); }
     if (k.cd(e, 'swap', SWAP_EVERY)) { FX.set(pick(FXS), .25); FX.kick(1); S.glitch = Math.max(S.glitch, .4); }
     if (DIR.state.rev && (DIR.state.rev.t -= dt) <= 0) DIR.restoreUp();
   } else if (e.ph === 2) {
     if (k.cd(e, 'sp', SP_RATE * 1.15)) { e.sa = (e.sa || 0) + (e.pt % 6 < 3 ? .27 : -.27); for (let i = 0; i < ARMS + 1; i++) k.shot(e.x, e.y, e.sa + i * TAU / (ARMS + 1), SP_SPD * .95, C); }
     if (k.cd(e, 'fan', FAN_EVERY * 1.2)) k.fan(e.x, e.y, k.aim(e, p), 3, .3, FAN_SPD, CW);
     if (k.cd(e, 'mut', 14, 1) && k.count('mutator') < 1) k.add('mutator');
+    if (k.cd(e, 'mark', MARK_EVERY, 2)) for (let i = 0; i < 2; i++) k.mark(p.x + rndr(-60, 60), p.y + rndr(-50, 50), 1.3 + i * .2, (x, y) => k.ring(x, y, 8, 46, rnd() * TAU, CW), CW);
     if (k.cd(e, 'snipe', 12, 2) && k.count('sniper') < 2) k.add('sniper');
     if (k.cd(e, 'wall', WALL_EVERY * 1.4, 3)) { const sd = pick(['T', 'L', 'R']); k.wall(sd, sd === 'T' ? rndr(60, 420) : rndr(50, 230), GAP_W + 8, WALL_SPD * .9, CW); }
   } else {
     if (k.cd(e, 'sp', SP_RATE * 1.25)) { e.sa = (e.sa || 0) + .23; for (let i = 0; i < 2; i++) { k.shot(e.x, e.y, e.sa + i * PI, SP_SPD + 4, C); k.shot(e.x, e.y, -e.sa + i * PI + PI / 2, SP_SPD, CW); } }
     if (k.cd(e, 'ring', RING_EVERY)) k.ring(e.x, e.y, 20, 60, rnd() * TAU, C, 4, k.aim(e, p));
+    if (k.cd(e, 'mark', MARK_EVERY * .85, 2)) for (let i = 0; i < 3; i++) k.mark(p.x + rndr(-70, 70), p.y + rndr(-55, 55), 1.3 + i * .15, (x, y) => k.ring(x, y, 8, 48, rnd() * TAU, C), CW);
     if (k.cd(e, 'wall', WALL_EVERY * 1.1, 2)) k.wall(pick(['L', 'R']), rndr(50, 230), GAP_W + 6, WALL_SPD * .9, CW);
     if (k.cd(e, 'beam', 11, 5)) { const a = k.aim(e, p) - PI / 2; k.beam({ owner: e, a, warn: 1.3, dur: 3, spin: -.34, c: C }); k.beam({ owner: e, a: a + PI, warn: 1.3, dur: 3, spin: -.34, c: C }); }
     if (k.cd(e, 'swap', SWAP_EVERY * .8)) { FX.set(pick(['feedback', 'fire', 'matrix']), .2); FX.kick(1.2); }
-    if (k.cd(e, 'sweep', 7, 3)) { const down = rnd() < .5; k.sweep({ pos: down ? 30 : 256, end: down ? 256 : 30, v: down ? 46 : -46, gap: rndr(70, 410), gv: rndr(-30, 30), gapW: 70, c: CW, warn: 1.2 }); }
+    if (k.cd(e, 'sweep', 5.6, 3)) { const down = rnd() < .5; k.sweep({ pos: down ? 30 : 256, end: down ? 256 : 30, v: down ? 46 : -46, gap: rndr(70, 410), gv: rndr(-30, 30), gapW: 70, c: CW, warn: 1.2 }); }
   }`);
 
   // ======================= DIRECTOR =======================
@@ -638,9 +642,9 @@ const DIR = (() => {
   }
   function fireStep(w, s) {
     const form = s[1], type = s[2], arg = s[4], n = LIVE.fn['dir.budget'](s[3], type, st.sector, st.wave);
-    if (form === 'stream') { const side = sideOf(arg), dur = (parseFloat(String(arg || '').slice(1)) || 8) * DIR.PACE, u = rndr(.2, .8);
+    if (form === 'stream') { const side = sideOf(arg), dur = (parseFloat(String(arg || '').slice(1)) || 8) * pace(), u = rndr(.2, .8);
       for (let i = 0; i < n; i++) w.jobs.push({ t: w.t + i * dur / n, type, side, u }); }
-    else if (form === 'trickle') { const dur = (+arg || 10) * DIR.PACE; for (let i = 0; i < n; i++) w.jobs.push({ t: w.t + i * dur / n, type, far: true }); }
+    else if (form === 'trickle') { const dur = (+arg || 10) * pace(); for (let i = 0; i < n; i++) w.jobs.push({ t: w.t + i * dur / n, type, far: true }); }
     else { const f = FORMS[form] || FORMS.rand, pts = f(n, arg, type);
       for (let i = 0; i < pts.length; i++) w.jobs.push({ t: w.t + i * .06, type: pts[i][2] || type, x: pts[i][0], y: pts[i][1] }); }
   }
@@ -706,13 +710,13 @@ const DIR = (() => {
     if (st.phase === 'intro') { if (st.t > INTRO_T) { if (SECTORS[st.sector].waves.length) startWave(0); else startBoss(); } return; }
     if (st.phase === 'wave') {
       const w = st.w; w.t += dt;
-      while (w.i < w.steps.length && w.steps[w.i][0] * DIR.PACE <= w.t) fireStep(w, w.steps[w.i++]);
+      while (w.i < w.steps.length && w.steps[w.i][0] * pace() <= w.t) fireStep(w, w.steps[w.i++]);
       runJobs(w); LIVE.fn['dir.mutator'](w, st.sector, st.wave);
       if (n > w.peak) w.peak = n;
       const done = w.i >= w.steps.length && !w.jobs.length;
       if (done && n === 0) { w.clr += dt; if (w.clr > CLEAR_HOLD) { st.phase = 'clear'; st.t = 0; if (st.sector < REPAIR_SECTORS && typeof GAME !== 'undefined') GAME.heal(1); banner('WAVE CLEARED', 'SECTOR ' + (st.sector + 1) + ' // ' + SECTORS[st.sector].waves[st.wave].name + ' OK', 1.4); sfx('levelup'); } }
       else w.clr = 0;
-      if (done && n > 0 && w.t > w.end * DIR.PACE + STALL_T) { ENT.each(T_ENEMY, e => ENT.kill(e, e)); st.log.push('stall:' + st.sector + '.' + st.wave); }
+      if (done && n > 0 && w.t > w.end * pace() + STALL_T) { ENT.each(T_ENEMY, e => ENT.kill(e, e)); st.log.push('stall:' + st.sector + '.' + st.wave); }
       return;
     }
     if (st.phase === 'clear') { if (st.t > BREATHER) { const nw = st.wave + 1; goPatch(nw < SECTORS[st.sector].waves.length ? { type: 'wave', w: nw } : { type: 'boss' }); } return; }

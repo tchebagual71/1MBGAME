@@ -183,6 +183,7 @@
         Q.log.segs.push(Q.seg); }
       else Q.seg = null;
     }
+    if (p && !p.dead && p.hp > 0) Q.log.minHp = Math.min(Q.log.minHp == null ? 99 : Q.log.minHp, p.hp);
     const sg = Q.seg; if (!sg) return;
     let n = 0; ENT.each(T_ENEMY, e => { if (e.T && e.T.enemy) { n++; if (!(e.warp > 0) && (e.x < X0 - 1 || e.x > X1 + 1 || e.y < Y0 - 1 || e.y > Y1 + 1)) Q.log.outside++; } });
     const age = S.runTime - sg.t0; if (age > (k.endsWith('B') ? 200 : 90) && !sg.stalled) { sg.stalled = 1; Q.log.stall.push(k); } sg.peak = Math.max(sg.peak, n); sg.nsum += n; sg.nf++;

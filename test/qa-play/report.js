@@ -27,6 +27,7 @@ for (const sk of skills) {
   console.log('death at:', JSON.stringify(Object.entries(by(rs.filter(r => r.death), r => r.death.at + (r.death.bossPh != null ? 'p' + r.death.bossPh : ''))).map(([k, v]) => k + ':' + v.length).join(' ')), ' killers:', JSON.stringify(killers));
   const hits = {}; for (const r of rs) for (const k in r.hitBy) hits[k] = (hits[k] || 0) + r.hitBy[k];
   console.log('hits by:', Object.entries(hits).sort((a, b) => b[1] - a[1]).slice(0, 16).map(([k, v]) => k + ':' + v).join(' '));
+  const mh = {}; for (const r of wins) mh[r.minHp] = (mh[r.minHp] || 0) + 1; console.log('winners: lowest hp reached during run ->', JSON.stringify(mh), ' total hits/run med', med(rs.map(r => r.hits)));
   const unf = rs.flatMap(r => r.unfair || []), ub = {}; for (const u of unf) ub[u.by] = (ub[u.by] || 0) + 1;
   console.log('unfair hits:', unf.length, JSON.stringify(ub), ' outside-arena enemy frames:', rs.reduce((s, r) => s + (r.outside || 0), 0), ' stalls:', JSON.stringify(rs.flatMap(r => r.stall || [])));
   if (verbose) for (const r of rs) console.log('  run', r.seed, r.win ? 'WIN' : 'died ' + JSON.stringify(r.death), r.time, r.final.join(','));

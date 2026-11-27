@@ -35,7 +35,7 @@ const GFX = (() => {
   return {
     clear(c) { fb.fill(c); }, fade(k) { for (let i = 0; i < fb.length; i++) fb[i] = scale(fb[i], k); },
     pset, add, rect, rectA, frame(x, y, w, h, c) { line(x, y, x + w - 1, y, c); line(x, y + h - 1, x + w - 1, y + h - 1, c); line(x, y, x, y + h - 1, c); line(x + w - 1, y, x + w - 1, y + h - 1, c); },
-    line: (a, b, c2, d, c) => line(a, b, c2, d, c), lineA: (a, b, c2, d, c) => line(a, b, c2, d, c, 1), circ, disc, glow,
+    line: (a, b, c2, d, c) => line(a, b, c2, d, c), lineA: (a, b, c2, d, c) => line(a, b, c2, d, c, 1), circ, disc, discA: disc, discB: disc, glow,
     tri() { }, shape, fill(pts, x, y, rot, s, c) { shape(pts, x, y, rot, s, c); },
     text, textW, textC: (s, cx, y, c, sc = 1) => text(s, cx - textW(s, sc) / 2, y, c, sc), textR: (s, rx, y, c, sc = 1) => text(s, rx - textW(s, sc), y, c, sc),
     textFx() { }, hsv, mix, scale, spr() { }, sprDef() { },
