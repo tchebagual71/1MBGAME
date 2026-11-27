@@ -29,7 +29,7 @@ BUS.on('blur', () => { if (SCENE.name === 'play' && !RUN.deadT) SCENE.go('pause'
 
 (() => {
   const g = window.__GENOME; if (g && typeof g === 'object') { S.genome = { gen: g.gen | 0, ids: Array.isArray(g.ids) ? g.ids.filter(x => typeof x === 'string') : [], hi: +g.hi || 0 }; }
-  window.__SM = { S, LIVE, PATCH, ENT, SCENE, IN, RUN, BUS, fb };   // debug/test handle
+  window.__SM = { S, LIVE, PATCH, ENT, SCENE, IN, RUN, BUS, fb, GFX, FX, AU, GAME, DIR, UI, POST };   // debug/test handle
   S.hi = Math.max(STORE.get('hi', 0), S.genome.hi);
   fit(); POST.init(CV);
   BUS.on('gesture', () => AU.init());
