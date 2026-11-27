@@ -17,6 +17,12 @@ const DIR = (() => {
   const angd = (a, b) => { let d = (a - b) % TAU; if (d > PI) d -= TAU; if (d < -PI) d += TAU; return d; };
   const W8 = rgb(255, 255, 255);
   const col = (e, c) => e.flash > 0 ? W8 : c;
+  const DK = rgb(6, 7, 16);
+  // thick solid outline (readable on bright FX backgrounds)
+  const ol = (pts, x, y, rot, s, c) => { GFX.shape(pts, x, y, rot, s, c); GFX.shape(pts, x, y, rot, s + .9, c); };
+  function band(x, y, r0, r1, a0, a1, c) { const n = Math.max(2, Math.ceil((a1 - a0) * r1 / 5));
+    for (let i = 0; i < n; i++) { const u = a0 + (a1 - a0) * i / n, v = a0 + (a1 - a0) * (i + 1) / n, cu = Math.cos(u), su = Math.sin(u), cv = Math.cos(v), sv = Math.sin(v);
+      GFX.tri(x + cu * r0, y + su * r0, x + cu * r1, y + su * r1, x + cv * r1, y + sv * r1, c); GFX.tri(x + cu * r0, y + su * r0, x + cv * r1, y + sv * r1, x + cv * r0, y + sv * r0, c); } }
 
   // ---- state ----
   const st = { phase: 'idle', t: 0, sector: 0, wave: 0, w: null, next: null, music: null, bugs: [], boss: null, bossKey: '', bossMusic: 'boss',
@@ -280,14 +286,17 @@ const DIR = (() => {
       return e.open > .5 ? 1.6 : 1; },
     draw(e) {
       const c1 = col(e, rgb(255, 170, 60)), c2 = col(e, rgb(90, 220, 255)), pr = 31 + e.open * 14, b = S.beat;
-      GFX.glow(e.x, e.y, 46, rgb(255, 120, 30), .35 + b * .2);
-      GFX.circ(e.x, e.y, 40 + e.open * 14, GFX.scale(c2, .35));
+      GFX.glow(e.x, e.y, 58, rgb(255, 120, 30), .45 + b * .2);
+      GFX.disc(e.x, e.y, 25, DK);
+      for (let i = 0; i < 24; i++) { const a = e.age * .3 + i * TAU / 24; arc(e.x, e.y, 42 + e.open * 14, a, a + .14, GFX.scale(c2, .7)); }
       for (let i = 0; i < 3; i++) { const ac = e.rot + i * TAU / 3, pw = e.pw * (1 - e.open * .6);
-        for (let rr = pr - 3; rr <= pr + 3; rr += 1.5) arc(e.x, e.y, rr, ac - pw, ac + pw, rr === pr ? W8 : c1);
-        GFX.glow(e.x + Math.cos(ac) * pr, e.y + Math.sin(ac) * pr, 9, c1, .6); }
+        band(e.x, e.y, pr - 4, pr + 4, ac - pw, ac + pw, GFX.scale(c1, .55));
+        arc(e.x, e.y, pr + 4, ac - pw, ac + pw, W8); arc(e.x, e.y, pr - 4, ac - pw, ac + pw, c1);
+        for (const s of [-1, 1]) { const a = ac + s * pw; GFX.line(e.x + Math.cos(a) * (pr - 4), e.y + Math.sin(a) * (pr - 4), e.x + Math.cos(a) * (pr + 4), e.y + Math.sin(a) * (pr + 4), W8); }
+        GFX.glow(e.x + Math.cos(ac) * pr, e.y + Math.sin(ac) * pr, 10, c1, .5); }
       for (let i = 0; i < 8; i++) { const a = -e.rot * .5 + i * TAU / 8; GFX.line(e.x + Math.cos(a) * 17, e.y + Math.sin(a) * 17, e.x + Math.cos(a) * 24, e.y + Math.sin(a) * 24, c2); }
-      GFX.fill(SH('hex'), e.x, e.y, -e.rot * .5, 17, rgb(20, 40, 60)); GFX.shape(SH('hex'), e.x, e.y, -e.rot * .5, 17, c2, true);
-      GFX.shape(SH('hex'), e.x, e.y, e.rot, 10 + b * 2, c1, true);
+      GFX.fill(SH('hex'), e.x, e.y, -e.rot * .5, 17, rgb(20, 40, 60)); ol(SH('hex'), e.x, e.y, -e.rot * .5, 17, c2);
+      ol(SH('hex'), e.x, e.y, e.rot, 10 + b * 2, c1);
       GFX.glow(e.x, e.y, 10 + e.open * 10, e.vent ? W8 : c2, .8 + b * .3); GFX.disc(e.x, e.y, 3, W8);
       if (e.vent && ((S.t * 8) | 0) & 1) GFX.textC('VENT', e.x, e.y - 58, rgb(255, 255, 120));
     } });
@@ -316,7 +325,7 @@ const DIR = (() => {
       e.x = lerp(e.x, b.x + Math.cos(e.oa) * R, 1 - Math.pow(.05, dt)); e.y = lerp(e.y, b.y + Math.sin(e.oa) * R * .8, 1 - Math.pow(.05, dt)); },
     draw(e) { const c = col(e, rgb(255, 90, 200)), s = e.sz || 1;
       for (let i = 0; i < 4; i++) { const ox = (i & 1 ? 1 : -1) * 4.5 * s, oy = (i & 2 ? 1 : -1) * 4.5 * s;
-        GFX.fill(POLY.square, e.x + ox, e.y + oy, e.age * 1.5, 4 * s, rgb(50, 10, 40)); GFX.shape(POLY.square, e.x + ox, e.y + oy, e.age * 1.5, 4 * s, c, true); }
+        GFX.fill(POLY.square, e.x + ox, e.y + oy, e.age * 1.5, 4 * s, rgb(50, 10, 40)); ol(POLY.square, e.x + ox, e.y + oy, e.age * 1.5, 4 * s, c); }
       GFX.glow(e.x, e.y, 12 * s, c, .5 + S.beat * .3); },
     die(e) { if (typeof GAME !== 'undefined') { GAME.explode(e.x, e.y, 22, 0, T_PSHOT); GAME.dropBits(e.x, e.y, 4); } } });
   defBoss('malloc', { name: 'MALLOC//FREE', r: 27, hp: 680, score: 9000, ph: [.66, .33], c: rgb(120, 255, 140), home: [CX, 80], fxp: ['feedback', 'feedback', 'metaballs'],
@@ -329,13 +338,13 @@ const DIR = (() => {
         if (q) e.parts.push(q); } },
     draw(e) {
       const c1 = col(e, rgb(120, 255, 140)), c2 = col(e, rgb(255, 90, 200)), b = S.beat, t = e.age;
-      GFX.glow(e.x, e.y, 44, rgb(60, 200, 90), .35 + b * .2);
+      GFX.glow(e.x, e.y, 54, rgb(60, 200, 90), .45 + b * .2); GFX.rect(e.x - 26, e.y - 26, 52, 52, DK);
       const map = [0, 1, 2, 3, 5, 6, 7, 8]; let shown = 0;
       for (let i = 0; i < 8; i++) { const j = map[i], gx = (j % 3 - 1) * 16, gy = ((j / 3 | 0) - 1) * 16, used = i < e.blk - 1;
         const wob = Math.sin(t * 3 + i) * 1.5, bx = e.x + gx + wob, by = e.y + gy - wob;
-        if (used) { GFX.fill(POLY.square, bx, by, 0, 9.5, (i + (t * 2 | 0)) % 3 ? rgb(20, 60, 30) : rgb(60, 20, 50)); GFX.shape(POLY.square, bx, by, 0, 9.5, (i & 1) ? c1 : c2, true); shown++; }
-        else GFX.shape(POLY.square, bx, by, 0, 9.5, GFX.scale(c1, .3), true); }
-      GFX.fill(POLY.square, e.x, e.y, t, 9 + b * 2, rgb(80, 255, 150)); GFX.shape(POLY.square, e.x, e.y, -t, 12, W8, true); GFX.glow(e.x, e.y, 10, W8, .6);
+        if (used) { GFX.fill(POLY.square, bx, by, 0, 9.5, (i + (t * 2 | 0)) % 3 ? rgb(20, 60, 30) : rgb(60, 20, 50)); ol(POLY.square, bx, by, 0, 9.5, (i & 1) ? c1 : c2); shown++; }
+        else ol(POLY.square, bx, by, 0, 9.5, GFX.scale(c1, .3)); }
+      GFX.fill(POLY.square, e.x, e.y, t, 9 + b * 2, rgb(80, 255, 150)); ol(POLY.square, e.x, e.y, -t, 12, W8); GFX.glow(e.x, e.y, 10, W8, .6);
       const br = 32 + Math.sin(t * 2) * 2; // brackets [ ]
       GFX.line(e.x - br, e.y - br, e.x - br, e.y + br, c1); GFX.line(e.x - br, e.y - br, e.x - br + 6, e.y - br, c1); GFX.line(e.x - br, e.y + br, e.x - br + 6, e.y + br, c1);
       GFX.line(e.x + br, e.y - br, e.x + br, e.y + br, c1); GFX.line(e.x + br, e.y - br, e.x + br - 6, e.y - br, c1); GFX.line(e.x + br, e.y + br, e.x + br - 6, e.y + br, c1);
@@ -365,7 +374,7 @@ const DIR = (() => {
     hurt(e, d, src) { const b = e.parent; return fwd(e, d, src, b && e === b.parts[b.parts.length - 1] ? 1.5 : .6); },
     draw(e) { const b = e.parent; if (!b) return; const tail = e === b.parts[b.parts.length - 1], s = e.sz || 1;
       const c = col(e, tail ? rgb(255, 230, 80) : (e.idx & 1 ? rgb(255, 80, 80) : rgb(255, 140, 70)));
-      GFX.fill(POLY.hex, e.x, e.y, e.a || 0, 7 * s, rgb(50, 12, 10)); GFX.shape(POLY.hex, e.x, e.y, e.a || 0, 7 * s, c, true);
+      GFX.fill(POLY.hex, e.x, e.y, e.a || 0, 7 * s, rgb(50, 12, 10)); ol(POLY.hex, e.x, e.y, e.a || 0, 7 * s, c);
       GFX.glow(e.x, e.y, (tail ? 13 : 7) * s, c, tail ? .7 + S.beat * .3 : .35);
       if (tail && ((S.t * 4) | 0) & 1) GFX.textC('TOS', e.x, e.y - 16, rgb(255, 230, 80)); } });
   defBoss('stack', { name: 'STACK SMASHER', r: 15, hp: 760, score: 14000, ph: [.66, .33], c: rgb(255, 80, 80), infect: true, home: [CX, 80], fxp: ['fire', 'fire', 'kefrens'],
@@ -388,7 +397,7 @@ const DIR = (() => {
       const m = Math.sin(e.age * 9) * .35 + .45; // mandibles
       for (const s of [-1, 1]) { const a1 = a + s * m; GFX.line(e.x + ca * 8 - sa * s * 6, e.y + sa * 8 + ca * s * 6, e.x + Math.cos(a1) * 24, e.y + Math.sin(a1) * 24, W8);
         GFX.line(e.x + Math.cos(a1) * 24, e.y + Math.sin(a1) * 24, e.x + Math.cos(a1 - s * .6) * 28, e.y + Math.sin(a1 - s * .6) * 28, c); }
-      GFX.fill(POLY.dart, e.x, e.y, a, 15, rgb(60, 10, 10)); GFX.shape(POLY.dart, e.x, e.y, a, 15, c, true); GFX.shape(POLY.dart, e.x, e.y, a, 10, rgb(255, 160, 80), true);
+      GFX.fill(POLY.dart, e.x, e.y, a, 15, rgb(60, 10, 10)); ol(POLY.dart, e.x, e.y, a, 15, c); ol(POLY.dart, e.x, e.y, a, 10, rgb(255, 160, 80));
       GFX.glow(e.x + ca * 5, e.y + sa * 5, 5, rgb(255, 255, 160), 1); GFX.disc(e.x + ca * 5, e.y + sa * 5, 1.5, W8);
       for (let i = 1; i < e.parts.length; i++) { const q0 = e.parts[i - 1], q1 = e.parts[i]; GFX.lineA(q0.x, q0.y, q1.x, q1.y, rgb(90, 30, 20)); }
       GFX.text('RET 0x' + (0x7ff0 + e.parts.length * 8).toString(16).toUpperCase(), e.x - 22, e.y - 26, GFX.scale(c, .7));
@@ -436,7 +445,7 @@ const DIR = (() => {
       GFX.line(x, y, x + Math.cos(ha) * 20, y + Math.sin(ha) * 20, W8); GFX.line(x + 1, y, x + 1 + Math.cos(ha) * 20, y + Math.sin(ha) * 20, c);
       GFX.line(x, y, x + Math.cos(ma) * 28, y + Math.sin(ma) * 28, c2);
       GFX.disc(x, y, 4, c); GFX.glow(x, y, 8, W8, .7);
-      if (e.ph === 2) GFX.shape(POLY.oct, x, y, S.t, 52, GFX.scale(rgb(255, 60, 60), .6 + b * .4), true);
+      if (e.ph === 2) ol(POLY.oct, x, y, S.t, 52, GFX.scale(rgb(255, 60, 60), .6 + b * .4));
     } });
   LIVE.def('boss.irq', 'e,p,dt,k', `
   const RING_N = 12, RING_SPD = 58, GAP = 3, EVERY_NTH_BEAT = 2;
@@ -464,13 +473,13 @@ const DIR = (() => {
     draw(e) {
       const c = col(e, rgb(200, 120, 255)), c2 = col(e, rgb(90, 255, 200)), b = S.beat, x = e.x, y = e.y, wd = 86;
       GFX.glow(x, y, 40, rgb(140, 60, 200), .4 + b * .2);
-      GFX.rectA(x - wd, y - 8, wd * 2, 16, rgb(30, 10, 50), .85); GFX.frame(x - wd, y - 8, wd * 2, 16, c);
+      GFX.rect(x - wd, y - 8, wd * 2, 16, rgb(24, 8, 40)); GFX.frame(x - wd, y - 8, wd * 2, 16, c); GFX.frame(x - wd - 1, y - 9, wd * 2 + 2, 18, GFX.scale(c, .6));
       for (let i = 0; i < 14; i++) { const tx = x - wd + 8 + i * 12.4, ln = 8 + Math.sin(e.age * 6 + i * .8) * 4 + (e.ph === 1 ? 4 : 0);
         GFX.line(tx, y + 8, tx, y + 8 + ln, c2); GFX.pset(tx, y + 9 + ln, W8); }
-      for (const s of [-1, 1]) { GFX.fill(POLY.tri, x + s * (wd + 6), y, s * PI / 2, 8, rgb(60, 20, 90)); GFX.shape(POLY.tri, x + s * (wd + 6), y, s * PI / 2, 8, c, true); }
+      for (const s of [-1, 1]) { GFX.fill(POLY.tri, x + s * (wd + 6), y, s * PI / 2, 8, rgb(60, 20, 90)); ol(POLY.tri, x + s * (wd + 6), y, s * PI / 2, 8, c); }
       GFX.textC('GC', x - 56, y - 3, c2); GFX.textC('GC', x + 56, y - 3, c2);
       const p = P(), la = Math.atan2(p.y - y, p.x - x);
-      GFX.disc(x, y, 15, rgb(20, 0, 30)); GFX.shape(SH('eye'), x, y, 0, 15, c, true); GFX.circ(x, y, 17 + b * 2, GFX.scale(c, .6));
+      GFX.disc(x, y, 15, rgb(20, 0, 30)); ol(SH('eye'), x, y, 0, 15, c); GFX.circ(x, y, 17 + b * 2, GFX.scale(c, .6));
       GFX.disc(x + Math.cos(la) * 6, y + Math.sin(la) * 4, 4, c2); GFX.disc(x + Math.cos(la) * 6, y + Math.sin(la) * 4, 1.5, W8); GFX.glow(x, y, 10, W8, .5);
     } });
   LIVE.def('boss.gc', 'e,p,dt,k', `
@@ -500,11 +509,11 @@ const DIR = (() => {
     draw(e) { const b = e.parent; if (b) twinDraw(e, b.lock === 1, rgb(255, 70, 200), b); } });
   function twinDraw(e, locked, c0, b) {
     const c = col(e, c0), t = e.age, bt = S.beat;
-    GFX.glow(e.x, e.y, 30, c0, .4 + bt * .3);
-    GFX.fill(POLY.diamond, e.x, e.y, t * .6, 16, rgb(30, 10, 40)); GFX.shape(POLY.diamond, e.x, e.y, t * .6, 16, c, true);
-    GFX.shape(POLY.diamond, e.x, e.y, -t * 1.1, 10, W8, true); GFX.glow(e.x, e.y, 6, W8, .8);
+    GFX.glow(e.x, e.y, 36, c0, .5 + bt * .3); GFX.disc(e.x, e.y, 15, DK);
+    GFX.fill(POLY.diamond, e.x, e.y, t * .6, 16, rgb(30, 10, 40)); ol(POLY.diamond, e.x, e.y, t * .6, 16, c);
+    ol(POLY.diamond, e.x, e.y, -t * 1.1, 10, W8); GFX.glow(e.x, e.y, 6, W8, .8);
     for (let i = 0; i < 3; i++) { const a = t * 2 + i * TAU / 3; GFX.disc(e.x + Math.cos(a) * 22, e.y + Math.sin(a) * 22, 2, c); }
-    if (locked) { GFX.shape(POLY.hex, e.x, e.y, t, 26, rgb(160, 200, 255), true); GFX.shape(POLY.hex, e.x, e.y, t, 24, rgb(80, 110, 200), true);
+    if (locked) { ol(POLY.hex, e.x, e.y, t, 26, rgb(160, 200, 255)); ol(POLY.hex, e.x, e.y, t, 24, rgb(80, 110, 200));
       GFX.textC('LOCKED', e.x, e.y - 36, rgb(160, 200, 255)); }
     else if (((S.t * 5) | 0) & 1) GFX.textC('OPEN', e.x, e.y - 34, rgb(255, 255, 120));
   }
@@ -554,16 +563,16 @@ const DIR = (() => {
     draw(e) {
       const ph = e.ph, b = S.beat, x = e.x, y = e.y, t = e.age;
       const cA = col(e, [rgb(80, 230, 255), rgb(255, 80, 220), rgb(120, 255, 140), rgb(255, 50, 60)][ph]), cB = col(e, rgb(255, 255, 255));
-      GFX.glow(x, y, 64, cA, .35 + b * .25);
+      GFX.glow(x, y, 76, cA, .45 + b * .25); GFX.disc(x, y, 47, DK);
       if (ph >= 1) for (const [tx, ty] of [[X0, Y0], [X1, Y0], [X0, Y1], [X1, Y1]]) if (((S.t * 7 + tx) | 0) % 3 === 0) GFX.bolt(x, y, tx, ty, GFX.scale(cA, .5), 10);
-      GFX.shape(POLY.hex, x, y, t * .3, 54, GFX.scale(cA, .45), true); GFX.shape(POLY.hex, x, y, -t * .5, 44 + b * 3, cA, true);
-      GFX.shape(POLY.oct, x, y, t * .8, 36, GFX.scale(cB, .5), true);
+      ol(POLY.hex, x, y, t * .3, 54, GFX.scale(cA, .45)); ol(POLY.hex, x, y, -t * .5, 44 + b * 3, cA);
+      ol(POLY.oct, x, y, t * .8, 36, GFX.scale(cB, .5));
       const n = 28, code = e.code; for (let i = 0; i < n; i++) { const a = -t * .4 + i * TAU / n, ch = code[(i + (S.t * 6 | 0)) % code.length];
-        GFX.text(ch, x + Math.cos(a) * 64 - 2, y + Math.sin(a) * 52 - 3, i % 7 === 0 ? cB : GFX.scale(cA, .8)); }
-      GFX.fill(POLY.chip, x, y, 0, 22, rgb(14, 16, 28)); GFX.shape(POLY.chip, x, y, 0, 22, cB, true);
+        GFX.text(ch, x + Math.cos(a) * 66 - 2, y + Math.sin(a) * 56 - 3, i % 7 === 0 ? cB : cA); }
+      GFX.fill(POLY.chip, x, y, 0, 22, rgb(14, 16, 28)); ol(POLY.chip, x, y, 0, 22, cB);
       for (let i = -2; i <= 2; i++) for (const s of [-1, 1]) { GFX.line(x + i * 8, y + s * 22, x + i * 8, y + s * 28, cA); GFX.line(x + s * 22, y + i * 8, x + s * 28, y + i * 8, cA); }
       const p = P(), la = Math.atan2(p.y - y, p.x - x), bl = Math.abs(Math.sin(t * .7)) > .97 ? .15 : 1;
-      GFX.fill(SH('eye'), x, y, 0, 15, rgb(40, 0, 10)); GFX.shape(SH('eye'), x, y, 0, 15 * bl + .5, cA, true);
+      GFX.fill(SH('eye'), x, y, 0, 15, ph === 3 ? rgb(90, 0, 10) : rgb(10, 30, 50)); ol(SH('eye'), x, y, 0, 15 * bl + .5, cA);
       GFX.disc(x + Math.cos(la) * 6, y + Math.sin(la) * 3, 4 * bl, ph === 3 ? rgb(255, 40, 40) : cA); GFX.disc(x + Math.cos(la) * 6, y + Math.sin(la) * 3, 1.5 * bl, cB);
       GFX.glow(x + Math.cos(la) * 6, y + Math.sin(la) * 3, 8, cA, .8);
     } });
@@ -605,11 +614,11 @@ const DIR = (() => {
   }`);
 
   // ======================= DIRECTOR =======================
-  function startSector(i) {
+  function startSector(i, quiet) {
     st.sector = i; S.sector = i; st.wave = 0; S.wave = 0; S.diff = LIVE.fn['dir.diff'](i, 0);
     const sc = SECTORS[i]; st.phase = 'intro'; st.t = 0; st.bossMusic = 'boss';
     fxSet(sc.fx[0], 1.2); music(sc.music); kick(1);
-    banner((sc.final ? 'FINAL // ' : 'SECTOR ' + i + ': ') + sc.name, sc.sub, 3);
+    if (!quiet) banner((sc.final ? 'FINAL // ' : 'SECTOR ' + i + ': ') + sc.name, sc.sub, 3);
     st.log.push('sector:' + i);
   }
   function startWave(w) {
@@ -724,7 +733,7 @@ const DIR = (() => {
   BUS.on('patch:done', () => { if (S.mode !== 'win' && st.phase !== 'done') { const m = st.next && st.next.type === 'boss' ? 'boss' : st.next && st.next.type === 'sector' ? SECTORS[Math.min(st.next.s, SECTORS.length - 1)].music : st.music; if (m && typeof AU !== 'undefined' && AU.music) AU.music(m); } });
 
   const debug = {
-    skipTo(s, w) { wipe(true); s = clamp(s | 0, 0, SECTORS.length - 1); startSector(s); const nw = SECTORS[s].waves.length; w = w | 0;
+    skipTo(s, w) { wipe(true); s = clamp(s | 0, 0, SECTORS.length - 1); w = w | 0; const nw = SECTORS[s].waves.length; startSector(s, w >= nw);
       if (w >= nw) startBoss(); else startWave(w); return st.phase; },
     boss(name) { name = String(name).toLowerCase(); const i = SECTORS.findIndex(sc => sc.boss === name || BOSS[sc.boss].name.toLowerCase().includes(name)); if (i < 0) return false;
       debug.skipTo(i, 99); st.t = WARN_T - .01; return true; },

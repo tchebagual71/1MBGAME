@@ -30,7 +30,7 @@ const GAME = (() => {
   };
 
   // ---------- internal state ----------
-  let hsT = 0, slowT = 0, comboTimer = 0, hitSfxT = 0, pickSfxT = 0, pickChain = 0, spawnSfxT = 0, bitsLive = 0, stamp = 1;
+  let hsT = 0, hsLast = -9, slowT = 0, comboTimer = 0, hitSfxT = 0, pickSfxT = 0, pickChain = 0, spawnSfxT = 0, bitsLive = 0, stamp = 1;
   const grid = []; for (let i = 0; i < GW * GH; i++) grid.push([]);
   const enemies = [], pshots = [], eshots = [];
   const orbs = new Float32Array(64 * 3); let orbN = 0;
@@ -244,7 +244,7 @@ if (e.st === 0) {            // reposition
   GAME.spot(e, 110);
 }`,
 
-    weaver: `const ARMS=3, RATE=5, SPIN=1.9, BSPD=58, DRIFT=14;
+    weaver: `const ARMS=3, RATE=4, SPIN=1.9, BSPD=58, DRIFT=14;
 e.rot += SPIN * dt;
 GAME.seek(e, p.x, p.y, DRIFT);
 if (e.age % 4.5 > 3) return;     // breathe
@@ -286,7 +286,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     heal(n) { const p = S.player; if (!p || p.dead || p.hp >= p.maxhp) return; p.hp = Math.min(p.maxhp, p.hp + n);
       pop('+' + n + ' HP', p.x, p.y - 12, C.green); GFX.ring(p.x, p.y, 4, 22, C.green, .35); sfx('pickup', { pitch: 1.6 }); },
     slow(t) { slowT = Math.max(slowT, t); },
-    hitstop(t) { hsT = Math.max(hsT, t); },
+    hitstop(t) { if (t < .1 && S.t - hsLast < .3) return; hsLast = S.t; hsT = Math.max(hsT, t); },
     // sniper beam: hitscan ray from (x,y) along ang, half-width w
     beam(x, y, ang, w) { const p = S.player; if (!p || p.dead) return;
       const c = Math.cos(ang), s = Math.sin(ang), dx = p.x - x, dy = p.y - y, t = dx * c + dy * s;
@@ -355,7 +355,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
         const sp = Math.hypot(b.vx, b.vy) || 1, k = Math.min(10, sp * .022) / sp;
         const tx = x - b.vx * k, ty = y - b.vy * k;
         if (r > 2.4) { GFX.disc(x, y, r + 1, PDARK); GFX.disc(x, y, r, b.c); GFX.disc(x, y, r * .5, PCORE); GFX.lineA(tx, ty, x, y, b.c); }
-        else { GFX.lineA(tx, ty, x, y, b.c); GFX.lineA(tx + .5, ty + .5, x + .5, y + .5, GFX.scale(b.c, .5)); GFX.pset(x, y, PCORE); GFX.add(x - b.vx * k * .4, y - b.vy * k * .4, b.c); }
+        else { GFX.glow(x, y, 5, b.c, .5); GFX.line(tx, ty, x, y, b.c); GFX.line(tx + 1, ty, x + 1, y, b.c); GFX.line(tx * .5 + x * .5, ty * .5 + y * .5 + 1, x, y + 1, PCORE); GFX.disc(x, y, 1.2, PCORE); }
       } else if (b.kind === 'needle' || b.kind === 'beam') {
         const sp = Math.hypot(b.vx, b.vy) || 1, ux = b.vx / sp * (r * 2.5 + 2), uy = b.vy / sp * (r * 2.5 + 2);
         GFX.line(x - ux + 1, y - uy, x + ux + 1, y + uy, EDARK); GFX.line(x - ux, y - uy + 1, x + ux, y + uy + 1, EDARK);
@@ -571,6 +571,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     GFX.disc(x, y, e.r * .75, DARK);
     const X = EXTRA[e.type]; if (X && X.pre) X.pre(e, fc, c);
     GFX.shape(T.sh, x, y, e.rot, e.r * T.k, fc);
+    GFX.shape(T.sh, x, y, e.rot, e.r * T.k - 1, e.flash > 0 ? fc : GFX.scale(c, .75));
     if (X && X.post) X.post(e, fc, c);
     if (e.maxhp >= 6 && e.hp < e.maxhp) { const w = e.r * 2, f = clamp(e.hp / e.maxhp, 0, 1); GFX.rect(x - w / 2, y + e.r + 4, w, 1, DARK); GFX.rect(x - w / 2, y + e.r + 4, w * f, 1, c); }
   }
@@ -630,7 +631,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
     if (T.score >= 30) pop('' + pts, e.x, e.y - e.r - 2, S.mult > 1 ? C.yellow : C.white, .7);
     if (S.mult > old) { const p = S.player; pop('x' + S.mult, p ? p.x : e.x, (p ? p.y : e.y) - 18, C.magenta, 1); sfx('combo', { pitch: 1 + S.mult * .05 }); }
     if (S.player) LIVE.fn['ply.kill'](S.player, e);
-    if (T.score >= 50) { sfx('bigkill'); hsT = Math.max(hsT, .035); S.shake = Math.max(S.shake, 3); } else { sfx('kill', { vol: .6 }); S.shake = Math.max(S.shake, 1.2); }
+    if (T.score >= 50) { sfx('bigkill'); H.hitstop(.035); S.shake = Math.max(S.shake, 3); } else { sfx('kill', { vol: .6 }); S.shake = Math.max(S.shake, 1.2); }
   }
   function setMult() { let m = 1; while (m < 10 && S.combo >= COMBO_TH[m + 1]) m++; S.mult = m; }
 
@@ -772,7 +773,7 @@ e.rot = Math.sin(e.age * 3) * .3;`,
   const bug = (id, name, desc, o) => PATCH.def(Object.assign({ id, name, desc, kind: 'bug' }, o));
 
   // --- weapon ---
-  up('rate', 'OVERCLOCK', 'RATE*=1.25 : +25% fire rate', { max: 4, weight: 1.3, apply: () => tune('wpn.fire', 'RATE', v => v * 1.25) });
+  up('rate', 'OVERCLOCK', 'RATE*=1.25 : +25% fire rate', { max: 4, weight: 1.3, apply: () => tune('wpn.fire', 'RATE', v => Math.round(v * 125) / 100) });
   up('fork', 'FORK()', 'N=1 -> N+2 : two extra barrels', { max: 2, apply: () => tune('wpn.fire', 'N', v => v + 2) });
   up('scatter', 'SCATTER', 'N+=1, SPREAD*=1.5 : shotgun cone', { max: 2, apply: () => LIVE.patch('wpn.fire', /\bN=(\d+), SPREAD=([\d.]+)/, (m, a, b) => 'N=' + (+a + 1) + ', SPREAD=' + r3(b * 1.5)) });
   up('dmg', 'INT64', 'DMG+=1 : heavier slugs', { max: 4, weight: 1.3, apply: () => tune('wpn.fire', 'DMG', v => v + 1) });

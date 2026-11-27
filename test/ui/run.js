@@ -24,7 +24,8 @@ const CRT = process.argv[2] === '1';
   await ev(`__T.S.genome={gen:3,ids:Object.keys(__T.PATCH.all).filter(k=>__T.PATCH.all[k].kind==='up').slice(0,3),hi:0}; __T.S.hi=123456`); await wait(4); await shot('05-title-gen');
   await ev('__T.S.genome={gen:0,ids:[],hi:0}');
   // mouse: click START (menu y 117 +16*0)
-  await p.mouse.move(240 * 2, 140 * 2); await wait(.1); await click(240, 125); await wait(.3); await expect('play', 'title START click');
+  await p.mouse.move(240 * 2, 140 * 2); await wait(.1); await click(240, 113); await wait(.3); await expect('play', 'title START click');
+  await ev(`setInterval(()=>{const p=__T.S.player; if(p){p.inv=9; if(p.hp<1)p.hp=1;}},50)`);
   await wait(2.5); await shot('06-play-hud');
   // ticker + bugs + boss
   await ev(`__T.PATCH.apply('uiScramble'); __T.PATCH.apply('uiMirror')`); await wait(.5); await shot('07-ticker-bugs');
@@ -42,7 +43,7 @@ const CRT = process.argv[2] === '1';
   await p.mouse.move(240 * 2, 80 * 2); await wait(.3); await shot('13-patch-hover2');
   await p.keyboard.press('Digit2'); await wait(.55); await shot('14-patch-diff-mid'); await wait(.5); await shot('15-patch-diff-ok');
   await wait(1.2); await expect('patch', 'second pick'); await shot('16-patch-pick2');
-  await click(240 - 148 - 8 + 4 + 74, 80); await wait(.15); await shot('16b-diff-click');
+  await click(10 + 74, 80); await wait(.15); await shot('16b-diff-click');
   await p.keyboard.press('Enter'); await wait(.1); await p.keyboard.press('Enter'); await wait(.3); await expect('play', 'patch done (skip)');
   // patch scene with empty offer
   await ev(`(()=>{const o=__T.PATCH.offer; __T.PATCH.offer=()=>[]; __T.SCENE.go('patch'); __T.PATCH.offer=o;})()`); await wait(.2); await expect('play', 'empty offer leaves');

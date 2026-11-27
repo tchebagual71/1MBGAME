@@ -343,7 +343,7 @@ const UI = (() => {
     { l: () => 'SOUND ' + (S.opt.mute ? 'OFF' : 'ON'), f: toggleMute },
     { l: () => 'CRT ' + (S.opt.crt ? 'ON' : 'OFF'), f: () => { S.opt.crt = !S.opt.crt; } },
     { l: 'FULLSCREEN', f: toggleFull }
-  ], 150, 117, 180, 16, 2);
+  ], 146, 104, 188, 18, 2);
   function scrollText() {
     return '          *** SELF.MOD ***   A PROCESS LOOSE IN A MACHINE THAT REWRITES ITSELF WHILE YOU PLAY ...   EVERY UPGRADE IS A LITERAL STRING PATCH ' +
       'ON LIVE SOURCE CODE, RECOMPILED BETWEEN TWO FRAMES ...   WASD MOVE - MOUSE AIM - LEFT BUTTON FIRE - ARROWS AIM+FIRE - SPACE DASH - ESC PAUSE - ' +
@@ -363,13 +363,13 @@ const UI = (() => {
     ['ARROWS    AIM+FIRE       TAP          MENUS       A B LB RB  DASH', K.txt],
     ['SPACE/RMB DASH                                    A          SELECT', K.txt],
     ['ESC / P   PAUSE                                   START      PAUSE', K.txt],
-    ['M MUTE   F FULLSCREEN   C CRT FILTER   ` FPS      MENUS: ARROWS/WASD + ENTER', K.dim2], ['', 0],
+    ['M MUTE  F FULLSCREEN  C CRT  ` FPS               MENUS: ARROWS + ENTER', K.dim2], ['', 0],
     ['PATCHES', K.grn],
-    ['AFTER EACH WAVE THE MACHINE OFFERS 3 PATCHES. EACH ONE IS A REAL EDIT TO THE', K.txt],
-    ["GAME'S OWN SOURCE: YOU WATCH THE DIFF RECOMPILE INTO THE RUNNING PROGRAM.", K.txt],
+    ['AFTER EACH WAVE THE MACHINE OFFERS 3 PATCHES. EACH ONE IS A REAL EDIT', K.txt],
+    ["TO THE GAME'S OWN SOURCE: WATCH THE DIFF RECOMPILE INTO THE RUNNING PROGRAM.", K.txt],
     ['PATCHES STACK. BY SECTOR FOUR YOUR BUILD SHOULD BE GLORIOUSLY BROKEN.', K.txt], ['', 0],
     ['BUGS', K.red],
-    ['MUTATOR ENEMIES INJECT BUGS: INVERTED AXES, CORRUPT VISUALS, DETUNED MUSIC.', K.txt],
+    ['MUTATOR ENEMIES INJECT BUGS: INVERTED AXES, CORRUPT VIDEO, DETUNED MUSIC.', K.txt],
     ['ACTIVE BUGS BLINK RED ON THE BOTTOM LINE. KILL THE CARRIER TO REVERT IT.', K.txt],
     ['IF A PATCH CRASHES A FRAME, THE KERNEL ROLLS IT BACK. CODE THAT HEALS.', K.txt], ['', 0],
     ['EXPORT', K.mag],
@@ -391,29 +391,29 @@ const UI = (() => {
     },
     draw(dt) {
       atlas(); fxDraw(dt); const t = TI.t;
-      copper(t, 5, 54, 34, 6, .45);
+      copper(t, 5, 48, 34, 6, .45);
       // bouncing vector object
       vecObj(W / 2 + Math.sin(t * .55) * 196, 168 - Math.abs(Math.sin(t * 1.9)) * 46, 22, t * 1.6, t * .05);
       const drop = 1 - sstep(0, 1, t / .9), bounce = Math.abs(Math.sin(t * 7)) * 8 * drop;
-      logo('SELF.MOD', 24, 16 - drop * 110 - bounce, 9, t, [235, 252, 255, 60, 120, 230, 255, 120, 236, 70, 10, 110]);
-      txc('A LIVE-CODED ARENA SHOOTER  //  EVERY UPGRADE IS A SOURCE PATCH', W / 2, 98, GFX.mix(K.cyan, K.white, S.beat));
-      darken(144, 113, 192, 86, .55); GFX.frame(144, 113, 192, 86, GFX.scale(K.line, 1 + S.beat));
+      logo('SELF.MOD', 24, 11 - drop * 110 - bounce, 9, t, [235, 252, 255, 60, 120, 230, 255, 120, 236, 70, 10, 110]);
+      txc('A LIVE-CODED ARENA SHOOTER  //  EVERY UPGRADE IS A SOURCE PATCH', W / 2, 90, GFX.mix(K.cyan, K.white, S.beat));
+      darken(140, 101, 200, 96, .55); GFX.frame(140, 101, 200, 96, GFX.scale(K.line, 1 + S.beat));
       menuDraw(titleMenu);
-      txc('HI-SCORE ' + LIVE.fn['ui.digits'](S.hi, 8), W / 2, 204, K.yel);
+      txc('HI-SCORE ' + LIVE.fn['ui.digits'](S.hi, 8), W / 2, 201, K.yel);
       if (S.genome.gen > 0) {
         const nm = S.genome.ids.map(id => PATCH.all[id] ? PATCH.all[id].name : id).join(' + ');
-        txc(clip('BUILD GEN ' + S.genome.gen + (nm ? '  ::  ' + nm : '  ::  CLEAN'), 78), W / 2, 214, GFX.mix(K.mag, K.white, .3 + .5 * S.beat));
-      } else txc('BUILD GEN 0  ::  UNMODIFIED', W / 2, 214, K.dim);
-      darken(0, 228, W, 42, .35);
-      scroller(TI.scroll, TI.off, 240, t);
+        txc(clip('BUILD GEN ' + S.genome.gen + (nm ? '  ::  ' + nm : '  ::  CLEAN'), 78), W / 2, 211, GFX.mix(K.mag, K.white, .3 + .5 * S.beat));
+      } else txc('BUILD GEN 0  ::  UNMODIFIED', W / 2, 211, K.dim);
+      darken(0, 224, W, 46, .35);
+      scroller(TI.scroll, TI.off, 236, t);
       if (TI.howto) drawHowto();
     }
   });
   function drawHowto() {
-    darken(0, 0, W, H, .6); panel(10, 6, 460, 258, '', K.cyan, .93);
+    darken(0, 0, W, H, .7); panel(4, 4, 472, 262, '', K.cyan, .96);
     GFX.textFx('HOW TO PLAY', W / 2 - GFX.textW('HOW TO PLAY', 2) / 2, 11, 2, (px, py, u, v) => GFX.hsv(.5 + u * .35 + TI.t * .1, .6, 1 - v * .4));
     let y = 32;
-    for (const [s, c] of HOWTO) { if (s) tx(s, 18, y, c); y += 9; }
+    for (const [s, c] of HOWTO) { if (s) tx(s, 12, y, c); y += 9; }
     txc('[ANY KEY / CLICK / TAP]  BACK', W / 2, 252, (S.frame & 32) ? K.yel : K.dim2);
   }
 
@@ -426,7 +426,7 @@ const UI = (() => {
   const cardAt = (x, y) => { for (let i = 0; i < PS.offer.length; i++) if (inR(x, y, cardRect(i, PS.offer.length))) return i; return -1; };
   function patchFn(p) {
     if (!p) return ''; if (typeof p.fn === 'string') return p.fn; if (Array.isArray(p.fn) && p.fn.length) return String(p.fn[0]);
-    try { const m = /LIVE\.patch\(\s*['"`]([\w.$-]+)['"`]/.exec(String(p.apply)); if (m && LIVE.src[m[1]] != null) return m[1]; } catch (e) { }
+    try { const re = /['"`]([\w.$-]+)['"`]/g, src = String(p.apply); let m; while ((m = re.exec(src))) if (LIVE.src[m[1]] != null) return m[1]; } catch (e) { }
     return '';
   }
   function newOffer() {
@@ -491,12 +491,17 @@ const UI = (() => {
   function previewOf(p) {
     if (PS.prev && PS.prev.p === p) return PS.prev;
     const fn = patchFn(p), src = fn ? LIVE.src[fn] : null, lines = src != null ? split(src) : [];
-    let hi = -1; const m = /^\s*(.+?)\s*->/.exec(p.desc || '');
-    if (m && lines.length) { const tok = m[1].replace(/\s+/g, ''); for (let i = 0; i < lines.length; i++) if (lines[i].replace(/\s+/g, '').indexOf(tok) >= 0) { hi = i; break; } }
+    let hi = -1; const desc = String(p.desc || ''), m = /^\s*(.+?)\s*->/.exec(desc), id = /^\s*([A-Za-z_]\w*)/.exec(desc);
+    const find = f => { for (let i = 0; i < lines.length && hi < 0; i++) if (f(lines[i])) hi = i; };
+    if (m) { const tok = m[1].replace(/\s+/g, ''); find(l => l.replace(/\s+/g, '').indexOf(tok) >= 0); }
+    if (id) { const re = new RegExp('\\b' + id[1] + '\\s*[=:]'); find(l => re.test(l)); }
+    if (/^\s*\+/.test(desc)) { try { const re = /['"`]([\w.$-]+)['"`]/g, src = String(p.apply); let q; while ((q = re.exec(src)) && hi < 0) { const tag = 'HOOK:' + q[1]; find(l => l.indexOf(tag) >= 0); } } catch (e) { }
+      find(l => l.indexOf('/*HOOK') >= 0); }
     return (PS.prev = { p, fn, lines, hi, bytes: src ? src.length : 0, t0: S.t });
   }
   function drawPick() {
     const n = PS.offer.length, t = PS.t;
+    darken(0, 0, W, 33, .7);
     GFX.textFx('PATCH AVAILABLE', W / 2 - GFX.textW('PATCH AVAILABLE', 2) / 2, 5, 2, (px, py, u, v) => GFX.mix(GFX.hsv(.33 + u * .2, .7, 1), K.white, v < .3 ? .6 : 0));
     txc('SELECT [1-' + n + ']  ARROWS+ENTER  CLICK' + (IN.touch ? ' / TAP TWICE' : '') + '   //   LIVE.GEN ' + LIVE.gen, W / 2, 24, K.dim2);
     if (PS.picks > 1) txr('PICK ' + (PS.pick + 1) + '/' + PS.picks, W - 6, 8, K.yel);
@@ -530,40 +535,42 @@ const UI = (() => {
       codeLine(pv.lines[li], 50, y, 69, hot ? 1 : .8);
     }
   }
+  // horizontal window so the changed span of a long line is visible: returns column offset
+  const hwin = (o, maxc) => o.b > maxc - 2 ? Math.max(0, Math.min(o.a - 12, o.s.length - maxc + 2)) : 0;
   function drawDiff() {
-    const p = PS.p, d = PS.ents[PS.ei], t = PS.t;
-    txs(clip('APPLYING ' + (p ? p.name : '?'), 30), 8, 5, p && p.kind === 'bug' ? K.red : K.grn, 2);
-    txr(PS.picks > 1 ? 'PICK ' + (PS.pick + 1) + '/' + PS.picks : 'GEN #' + LIVE.gen, W - 8, 9, K.yel);
-    const wx = 8, wy = 24, ww = 464, wh = 226, open = sstep(0, .2, t), rows = 23;
-    const hh = Math.max(12, wh * open);
+    const p = PS.p, d = PS.ents[PS.ei], t = PS.t, bug = p && p.kind === 'bug';
+    darken(0, 0, W, 22, .75);
+    txs(clip('APPLYING ' + (p ? p.name : '?'), 30), 8, 4, bug ? K.red : K.grn, 2);
+    txr(PS.picks > 1 ? 'PICK ' + (PS.pick + 1) + '/' + PS.picks : 'GEN #' + LIVE.gen, W - 8, 8, K.yel);
+    const wx = 8, wy = 24, ww = 464, open = sstep(0, .2, t);
     if (!d) { // link error / no delta
-      panel(wx, wy, ww, hh, 'LINKER', PS.err.startsWith('LINK ERROR') ? K.red : K.line, .92);
-      if (open >= 1) { const bad = PS.err.startsWith('LINK ERROR');
-        txc(PS.err, W / 2, wy + 80, bad ? ((S.frame & 8) ? K.red : K.white) : K.grn, 2);
-        txc(bad ? 'THE PATCH FOUND NOTHING TO EDIT. BUILD UNCHANGED.' : 'PATCH ACTIVE.', W / 2, wy + 110, K.dim2);
+      const wh = 200, hh = Math.max(12, wh * open), bad = PS.err.startsWith('LINK ERROR');
+      panel(wx, wy, ww, hh, 'LINKER', bad ? K.red : K.line, .92);
+      if (open >= 1) {
+        txc(PS.err, W / 2, wy + 70, bad ? ((S.frame & 8) ? K.red : K.white) : K.grn, 2);
+        txc(bad ? 'THE PATCH FOUND NOTHING TO EDIT. BUILD UNCHANGED.' : 'PATCH ACTIVE.', W / 2, wy + 100, K.dim2);
         txc('[ANY KEY] CONTINUE', W / 2, wy + wh - 14, K.dim); }
       return;
     }
-    const T = TL(d);
-    panel(wx, wy, ww, hh, '@@ ' + d.name + ' @@   ' + d.nb + ' B -> ' + d.na + ' B' + (PS.ents.length > 1 ? '   [' + (PS.ei + 1) + '/' + PS.ents.length + ']' : ''), p && p.kind === 'bug' ? K.red : K.line, .93);
+    const T = TL(d), ops = d.ops, nr = ops.length, rows = clamp(nr, 8, 16), wh = 16 + rows * 9, hh = Math.max(12, wh * open);
+    panel(wx, wy, ww, hh, '@@ ' + d.name + ' @@   ' + d.nb + ' B -> ' + d.na + ' B' + (PS.ents.length > 1 ? '   [' + (PS.ei + 1) + '/' + PS.ents.length + ']' : ''), bug ? K.red : K.line, .93);
     if (open < 1) return;
-    const ops = d.ops, nr = ops.length, s0 = nr > rows ? clamp(d.fc - 6, 0, nr - rows) : 0;
-    let typed = Math.max(0, (t - T.tt) * T.rate);
-    // pre-count typed chars consumed by '+' rows above the visible window
+    const s0 = nr > rows ? clamp(d.fc - 4, 0, nr - rows) : 0, cx = wx + 44, maxc = 69;
+    let typed = Math.max(0, (t - T.tt) * T.rate), cur = false;
     for (let i = 0; i < s0; i++) if (ops[i].op === '+') typed -= Math.max(1, ops[i].b - ops[i].a);
-    const cx = wx + 44, maxc = 69; let cur = false;
     for (let r = 0; r < rows && s0 + r < nr; r++) {
       const o = ops[s0 + r], y = wy + 14 + r * 9;
       if (o.op === ' ') { tx(String(o.n).padStart(4, ' '), wx + 4, y, K.dim); codeLine(o.s, cx, y, maxc, .62); continue; }
+      const ho = hwin(o, maxc), str = o.s.slice(ho), a = clamp(o.a - ho, 0, maxc), b = clamp(o.b - ho, 0, maxc);
+      if (ho) GFX.rect(cx - 4, y, 2, 7, K.yel);
       if (o.op === '-') {
         const tm = t - T.tm;
-        if (tm < 0) { tx(String('').padStart(4, ' '), wx + 4, y, K.dim); codeLine(o.s, cx, y, maxc, .62); continue; }
+        if (tm < 0) { codeLine(str, cx, y, maxc, .62); continue; }
         const blink = tm < .25 && ((tm * 24) | 0) & 1;
         GFX.rectA(wx + 1, y - 1, ww - 2, 9, K.red, blink ? .45 : .2);
         tx('-', wx + 32, y, K.red);
-        const a = Math.min(o.a, maxc), b = Math.min(o.b, maxc);
-        if (b > a) GFX.rectA(cx + a * 6 - 1, y - 1, (b - a) * 6 + 1, 9, K.red, .45);
-        tx(clip(o.s, maxc), cx, y, GFX.mix(K.red2, K.white, blink ? .5 : .15));
+        if (b > a) GFX.rectA(cx + a * 6 - 1, y - 1, (b - a) * 6 + 1, 9, K.red, .5);
+        tx(str.slice(0, maxc), cx, y, GFX.mix(K.red2, K.white, blink ? .5 : .15));
         if (tm > .2 && b > a) GFX.rect(cx + a * 6 - 1, y + 3, ((b - a) * 6 + 1) * sstep(.2, .35, tm), 1, K.white);
         continue;
       }
@@ -571,18 +578,33 @@ const UI = (() => {
       const need = Math.max(1, o.b - o.a), k = clamp(typed, 0, need); typed -= need;
       tx(String(o.n).padStart(4, ' '), wx + 4, y, K.dim);
       if (t < T.tt) { GFX.rectA(wx + 1, y - 1, ww - 2, 9, K.grn, .06); continue; }
-      GFX.rectA(wx + 1, y - 1, ww - 2, 9, K.grn, k >= need ? .16 : .1);
+      const done = k >= need, upto = (done ? o.s.length : o.a + Math.floor(k)) - ho;
+      GFX.rectA(wx + 1, y - 1, ww - 2, 9, K.grn, done ? .16 : .1);
       tx('+', wx + 32, y, K.grn);
-      const done = k >= need, upto = done ? o.s.length : o.a + Math.floor(k);
-      const a = Math.min(o.a, maxc), b = Math.min(o.b, maxc);
-      if (done && b > a) GFX.rectA(cx + a * 6 - 1, y - 1, (b - a) * 6 + 1, 9, K.grn, .35 + .25 * Math.max(0, 1 - (t - T.tc) * 2));
-      tx(o.s.slice(0, Math.min(upto, maxc)), cx, y, done ? K.grn : GFX.mix(K.grn, K.white, .5));
-      if (!done && !cur) { cur = true; const cc = Math.min(upto, maxc); if ((S.frame & 4) || k > 0) GFX.rect(cx + cc * 6, y - 1, 5, 8, K.white); }
+      if (done && b > a) GFX.rectA(cx + a * 6 - 1, y - 1, (b - a) * 6 + 1, 9, K.grn, .35 + .3 * Math.max(0, 1 - (t - T.tc) * 2));
+      tx(str.slice(0, clamp(upto, 0, maxc)), cx, y, done ? K.grn : GFX.mix(K.grn, K.white, .5));
+      if (!done && !cur) { cur = true; if ((S.frame & 4) || k > 0) GFX.rect(cx + clamp(upto, 0, maxc) * 6, y - 1, 5, 8, K.white); }
     }
     if (nr > rows) { const sh = Math.max(8, (wh - 16) * rows / nr), sy = wy + 12 + (wh - 16 - sh) * s0 / Math.max(1, nr - rows); GFX.rect(wx + ww - 4, sy, 2, sh, K.line); }
+    // DELTA: the changed spans, big
+    const dy = wy + wh + 6, pairs = [];
+    for (let i = 0; i < nr && pairs.length < 4; i++) if (ops[i].op !== ' ') pairs.push(ops[i]);
+    const dh = 248 - dy;
+    if (dh > 30) {
+      panel(wx, dy, ww, dh, 'DELTA', bug ? K.red : K.line, .9);
+      const big = pairs.length <= 2 && dh >= 50, sc = big ? 2 : 1, lh = big ? 18 : 9, mc = Math.floor((ww - 30) / (6 * sc));
+      for (let i = 0; i < pairs.length; i++) {
+        const o = pairs[i], y = dy + 15 + i * lh; if (y + 8 * sc > dy + dh) break;
+        const minus = o.op === '-'; if (minus ? t < T.tm : t < T.tt) continue;
+        const ctx = 6, s0c = Math.max(0, o.a - ctx), seg = o.s.slice(s0c, Math.min(o.s.length, Math.max(o.b + ctx, s0c + 4))).replace(/^\s+/, ''), shown = clip(seg, mc);
+        txs(o.op, wx + 6, y, minus ? K.red : K.grn, sc);
+        txs(shown, wx + 6 + 12 * sc, y, minus ? GFX.mix(K.red2, K.white, .1) : (t >= T.tc ? K.grn : GFX.mix(K.grn, K.white, .5)), sc);
+        if (minus && t > T.tm + .3) GFX.rect(wx + 6 + 12 * sc, y + 4 * sc - 1, GFX.textW(shown, sc), sc, K.red2);
+      }
+    }
     // status line
-    const sy = wy + wh + 5;
-    darken(0, sy - 3, W, 14, .6);
+    const sy = 254;
+    darken(0, sy - 3, W, 14, .7);
     if (t < T.tc) tx('PATCHING ' + d.name + ' ' + '...'.slice(0, (t * 8 | 0) % 4), 10, sy, K.dim2);
     else if (t < T.tok) tx('RECOMPILING' + '.....'.slice(0, ((t - T.tc) * 18 | 0) % 6), 10, sy, K.yel);
     else { tx('RECOMPILING... ', 10, sy, K.yel); tx('OK', 100, sy, K.grn); tx('gen #' + LIVE.gen, 124, sy, K.white);
@@ -808,7 +830,7 @@ const UI = (() => {
     // score with rolling digits
     if (dt <= 0) dScore = S.score; else { const ds = S.score - dScore; dScore += ds * Math.min(1, dt * 10); if (Math.abs(S.score - dScore) < 1) dScore = S.score; }
     const dig = String(LIVE.fn['ui.digits'](Math.round(dScore), 8)), sx = Math.max(pw + 14, 66);
-    tx('SC', sx, 4, K.dim);
+    tx('SC', sx - 2, 4, K.dim);
     for (let i = 0; i < dig.length; i++) {
       if (dig[i] !== lastDig[i]) bump[i % 24] = .12; const b = bump[i % 24]; if (b > 0) bump[i % 24] -= dt;
       tx(dig[i], sx + 14 + i * 6, 4 - (b > 0 ? Math.round(b / .12 * 2) : 0), b > 0 ? K.white : K.txt);
@@ -821,7 +843,7 @@ const UI = (() => {
     GFX.rect(bx, 6, 34, 3, K.hl); GFX.rect(bx, 6, 34 * cf, 3, mult > 1 ? K.yel : K.org);
     if (S.combo > 1) tx(String(S.combo | 0), bx + 37, 4, K.org);
     // boss bar / sector name
-    const B = S.boss, mid0 = bx + 60, mid1 = 412;
+    const B = S.boss, mid0 = bx + 60, mid1 = 404;
     if (B && !B.dead && B.maxhp > 0) {
       if (B !== bossRef) { bossRef = B; bossF = bossT = 1; }
       const f = clamp(B.hp / B.maxhp, 0, 1); bossF += (f - bossF) * Math.min(1, dt * 14 || 1); bossT = Math.max(bossF, bossT - dt * .25);
@@ -869,7 +891,7 @@ const UI = (() => {
     const ops = diffLines(split(en.before), split(en.after)).filter(o => o.op !== ' '), p = PATCH.all[en.tag];
     const mi = ops.filter(o => o.op === '-').slice(0, 2), pl = ops.filter(o => o.op === '+').slice(0, 2);
     ticks.push({ name: en.name, pname: p ? p.name : (en.tag || 'ANON PATCH'), bug: !!(p && p.kind === 'bug'), lines: mi.concat(pl), more: ops.length - mi.length - pl.length, t: 0, gen: LIVE.gen });
-    if (ticks.length > 3) ticks.shift();
+    if (ticks.length > 2) ticks.shift();
   });
   BUS.on('panic', (e, en) => { toast('EXCEPTION - ROLLED BACK ' + (en && en.name || '?'), clip(String(e && e.message || e || ''), 60), K.red, 3); sfx('glitch'); });
   BUS.on('patch:cure', p => { if (p && p.kind === 'bug' && S.mode === 'play') toast('PATCH REVERTED', p.name, K.grn, 2.4); });
@@ -896,9 +918,9 @@ const UI = (() => {
       y -= h; if (y < 20) break;
       const ac = k.bug ? K.red : K.grn;
       GFX.rectA(x, y, w, h, K.panel, .78); GFX.frame(x, y, w, h, ac); GFX.rect(x + 1, y + 1, w - 2, 10, GFX.scale(ac, .35));
-      tx(clip((k.bug ? 'BUG ' : 'LIVE PATCH ') + k.name, 26), x + 4, y + 2, K.white); txr('#' + k.gen, x + w - 4, y + 2, K.dim2);
-      for (let j = 0; j < n; j++) { const o = k.lines[j], s = o.s.replace(/^\s+/, '');
-        tx(o.op + ' ' + clip(s, 36), x + 4, y + 13 + j * 9, o.op === '-' ? (k.bug ? rgb(150, 90, 100) : K.red2) : ac); }
+      tx(clip(k.pname, 22), x + 4, y + 2, K.white); txr(clip(k.name, 14), x + w - 4, y + 2, k.bug ? rgb(255, 190, 190) : rgb(190, 255, 200));
+      for (let j = 0; j < n; j++) { const o = k.lines[j], ho = hwin(o, 36);
+        tx(o.op + ' ' + clip((ho ? '..' + o.s.slice(ho + 2) : o.s.replace(/^\s+/, '')), 36), x + 4, y + 13 + j * 9, o.op === '-' ? (k.bug ? rgb(150, 90, 100) : K.red2) : ac); }
       if (k.more > 0) tx('  ... ' + k.more + ' MORE LINE' + (k.more > 1 ? 'S' : ''), x + 4, y + 13 + n * 9, K.dim);
       y -= 3;
     }
@@ -907,7 +929,7 @@ const UI = (() => {
     for (let i = 0; i < toasts.length; i++) {
       const o = toasts[i]; o.t += dt; if (o.t > o.d) { toasts.splice(i--, 1); continue; }
       const a = sstep(0, .15, o.t) * sstep(o.d, o.d - .3, o.t), w = Math.max(GFX.textW(o.text, 1), GFX.textW(o.sub, 1)) + 16, h = o.sub ? 24 : 14;
-      const x = (W - w) / 2, y = 22 + i * 28 - (1 - a) * 30;
+      const x = (W - w) / 2, y = S.mode === 'play' ? 22 + i * 28 - (1 - a) * 30 : 236 - i * 28 + (1 - a) * 30;
       GFX.rectA(x, y, w, h, K.black, .8 * a); GFX.frame(x, y, w, h, o.c);
       if (o.t < .35 && (S.frame & 2)) GFX.rectA(x, y, w, h, o.c, .35);
       txc(o.text, W / 2, y + 3, o.t < .35 && (S.frame & 4) ? K.white : o.c);

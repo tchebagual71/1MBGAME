@@ -76,11 +76,11 @@ const mode = process.argv[2] || 'all';
       DIR.debug.boss('kernel'); const dt = 1 / 60;
       for (let i = 0; i < 200; i++) T.step(dt, false);
       R.hasBoss = !!S.boss; DIR.debug.phase(1); for (let i = 0; i < 30; i++) T.step(dt, false);
-      R.rev = DIR.state.rev && DIR.state.rev.id; R.upsMid = PATCH.active.length;
+      R.rev = DIR.state.rev && DIR.state.rev.id; R.upsMid = PATCH.active.filter(id => PATCH.all[id].kind === 'up').length;
       DIR.debug.phase(2); for (let i = 0; i < 80; i++) T.step(dt, false);
       R.bugsMid = PATCH.bugs().slice(); R.dirBugs = DIR.state.bugs.slice(); R.hzMid = DIR.hz.length;
       DIR.reset();
-      R.after = { boss: S.boss, bugs: PATCH.bugs().length, hz: DIR.hz.length, phase: DIR.state.phase, enemies: ENT.count(T_ENEMY), sector: S.sector, fxtag: LIVE.log.filter(e => e.tag === 'kernel.fx').length };
+      R.after = { boss: S.boss, bugs: PATCH.bugs().length, hz: DIR.hz.length, phase: DIR.state.phase, enemies: ENT.count(T_ENEMY), sector: S.sector, fxtag: Object.values(LIVE._d).filter(d => d.p.some(q => q.tag === 'kernel.fx')).length };
       for (let i = 0; i < 60 * 6; i++) { S.player.hp = S.player.maxhp; T.step(dt, false); }
       R.after2 = { phase: DIR.state.phase, wave: S.wave, sector: S.sector, enemies: ENT.count(T_ENEMY), boss: S.boss };
       // debug skip into a mid boss + mutator wave
@@ -109,7 +109,7 @@ const mode = process.argv[2] || 'all';
         for (let i = 0; i < 150; i++) { S.player.hp = 99; T.step(dt, false); }
         if (ph) { DIR.debug.phase(ph); }
         const p = S.player;
-        for (let i = 0; i < 60 * 7; i++) { p.hp = 99; p.inv = 1; p.x = 240 + Math.cos(i / 90) * 120; p.y = 200 + Math.sin(i / 70) * 40; T.step(dt, i % 3 === 0); }
+        for (let i = 0; i < 60 * 7; i++) { p.hp = 99; p.inv = 1; p.x = 240 + Math.cos(i / 90) * 120; p.y = 200 + Math.sin(i / 70) * 40; T.step(dt, true); }
         T.step(dt, true);
         return { ph: S.boss && S.boss.ph, hp: S.boss && Math.round(S.boss.hp), eshots: GAME.counts.eshots, errs: T.errs.slice(0, 2) };
       }, [k, ph]);
