@@ -254,7 +254,7 @@ const DIR = (() => {
     K.clearShots(); HZ.length = 0;
     cureBugs(e);
     if (cfg.infect) { const b = PATCH.infect(); if (b) { e.bugs.push(b.id); st.bugs.push(b.id); sfx('bug'); } }
-    banner(cfg.name + ' // PHASE ' + (e.ph + 1), (cfg.phn && cfg.phn[e.ph]) || 'ESCALATING', 1.8);
+    banner(cfg.name + ' // PHASE ' + (e.ph + 1), (cfg.phn && cfg.phn[e.ph]) || 'ESCALATING', 1.3);
     if (cfg.fxp && cfg.fxp[e.ph]) fxSet(cfg.fxp[e.ph], .4);
     if (cfg.onPhase) cfg.onPhase(e);
   }
@@ -274,7 +274,7 @@ const DIR = (() => {
   function fwd(e, d, src, k) { const b = e.parent; if (!b || b.dead) return false; e.flash = .08; if (b.intro > 0 || b.inv > 0 || k <= 0) { block(e, src); return false; } ENT.damage(b, d * k, src); return false; }
 
   // ---------- 0: BOOTSTRAP — shielded core, rotating plates block shots by angle ----------
-  defBoss('boot', { name: 'BOOTSTRAP', r: 30, hp: 360, score: 5000, ph: [.62, .3], c: rgb(255, 170, 60), home: [CX, 72], fxp: ['tunnel', 'tunnel', 'rotozoom'],
+  defBoss('boot', { name: 'BOOTSTRAP', r: 30, hp: 360, score: 5000, ph: [.62, .3], c: rgb(255, 170, 60), home: [CX, 72], fxp: ['tunnel', 'tunnel', 'tunnel'],
     phn: ['ROTATING SHIELD', 'COUNTER-SPIN // ADDS', 'VENTING CORE'],
     init(e) { e.rot = 0; e.pw = .52; e.open = 0; },
     idle(e, dt) { e.rot += dt; },
@@ -618,7 +618,7 @@ const DIR = (() => {
     st.sector = i; S.sector = i; st.wave = 0; S.wave = 0; S.diff = LIVE.fn['dir.diff'](i, 0);
     const sc = SECTORS[i]; st.phase = 'intro'; st.t = 0; st.bossMusic = 'boss';
     fxSet(sc.fx[0], 1.2); music(sc.music); kick(1);
-    if (!quiet) banner((sc.final ? 'FINAL // ' : 'SECTOR ' + i + ': ') + sc.name, sc.sub, 3);
+    if (!quiet) banner((sc.final ? 'FINAL // ' : 'SECTOR ' + (i + 1) + ': ') + sc.name, sc.sub, 3);
     st.log.push('sector:' + i);
   }
   function startWave(w) {
@@ -632,9 +632,9 @@ const DIR = (() => {
   }
   function fireStep(w, s) {
     const form = s[1], type = s[2], arg = s[4], n = LIVE.fn['dir.budget'](s[3], type, st.sector, st.wave);
-    if (form === 'stream') { const side = sideOf(arg), dur = parseFloat(String(arg || '').slice(1)) || 8, u = rndr(.2, .8);
+    if (form === 'stream') { const side = sideOf(arg), dur = (parseFloat(String(arg || '').slice(1)) || 8) * DIR.PACE, u = rndr(.2, .8);
       for (let i = 0; i < n; i++) w.jobs.push({ t: w.t + i * dur / n, type, side, u }); }
-    else if (form === 'trickle') { const dur = +arg || 10; for (let i = 0; i < n; i++) w.jobs.push({ t: w.t + i * dur / n, type, far: true }); }
+    else if (form === 'trickle') { const dur = (+arg || 10) * DIR.PACE; for (let i = 0; i < n; i++) w.jobs.push({ t: w.t + i * dur / n, type, far: true }); }
     else { const f = FORMS[form] || FORMS.rand, pts = f(n, arg, type);
       for (let i = 0; i < pts.length; i++) w.jobs.push({ t: w.t + i * .06, type: pts[i][2] || type, x: pts[i][0], y: pts[i][1] }); }
   }
@@ -700,13 +700,13 @@ const DIR = (() => {
     if (st.phase === 'intro') { if (st.t > INTRO_T) { if (SECTORS[st.sector].waves.length) startWave(0); else startBoss(); } return; }
     if (st.phase === 'wave') {
       const w = st.w; w.t += dt;
-      while (w.i < w.steps.length && w.steps[w.i][0] <= w.t) fireStep(w, w.steps[w.i++]);
+      while (w.i < w.steps.length && w.steps[w.i][0] * DIR.PACE <= w.t) fireStep(w, w.steps[w.i++]);
       runJobs(w); LIVE.fn['dir.mutator'](w, st.sector, st.wave);
       if (n > w.peak) w.peak = n;
       const done = w.i >= w.steps.length && !w.jobs.length;
-      if (done && n === 0) { w.clr += dt; if (w.clr > CLEAR_HOLD) { st.phase = 'clear'; st.t = 0; banner('WAVE CLEARED', 'SECTOR ' + st.sector + ' // ' + SECTORS[st.sector].waves[st.wave].name + ' OK', 1.4); sfx('levelup'); } }
+      if (done && n === 0) { w.clr += dt; if (w.clr > CLEAR_HOLD) { st.phase = 'clear'; st.t = 0; banner('WAVE CLEARED', 'SECTOR ' + (st.sector + 1) + ' // ' + SECTORS[st.sector].waves[st.wave].name + ' OK', 1.4); sfx('levelup'); } }
       else w.clr = 0;
-      if (done && n > 0 && w.t > w.end + STALL_T) { ENT.each(T_ENEMY, e => ENT.kill(e, e)); st.log.push('stall:' + st.sector + '.' + st.wave); }
+      if (done && n > 0 && w.t > w.end * DIR.PACE + STALL_T) { ENT.each(T_ENEMY, e => ENT.kill(e, e)); st.log.push('stall:' + st.sector + '.' + st.wave); }
       return;
     }
     if (st.phase === 'clear') { if (st.t > BREATHER) { const nw = st.wave + 1; goPatch(nw < SECTORS[st.sector].waves.length ? { type: 'wave', w: nw } : { type: 'boss' }); } return; }
@@ -741,7 +741,7 @@ const DIR = (() => {
     phase(k) { const e = st.boss; if (!e) return; const B = BOSS[st.bossKey]; const th = B.ph[k - 1]; if (th != null) { e.hp = Math.floor(e.maxhp * th) - 1; e.inv = 0; } }
   };
 
-  return { reset, update, sectors: SECTORS, state: st, bosses: BOSS, k: K, hz: HZ, far, HPK: 1, debug, restoreUp,
+  return { reset, update, sectors: SECTORS, state: st, bosses: BOSS, k: K, hz: HZ, far, HPK: 1, PACE: .8, debug, restoreUp,
     spawn: (t, x, y, o) => LIVE.fn['dir.spawn'](t, x, y, o) };
 
   // arc helper (function declaration, hoisted)

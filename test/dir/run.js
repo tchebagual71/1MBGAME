@@ -31,6 +31,8 @@ const mode = process.argv[2] || 'all';
       const sp = GAME.spawnEnemy; GAME.spawnEnemy = function (t, x, y, o) { const p = S.player; if (p) R.minSpawnD = Math.min(R.minSpawnD, Math.hypot(x - p.x, y - p.y));
         if (ENT.count(T_ENEMY) >= 60) R.spawnAtCap++; return sp(t, x, y, o); };
       const ub = UI.banner; UI.banner = function (a, b2, s) { R.banners++; return ub.call(UI, a, b2, s); };
+      R.mus = []; const am = AU.music; AU.music = function (n) { R.mus.push(n); return am.call(AU, n); };
+      const ai = AU.intensity; AU.intensity = function (x) { if (!(x >= 0 && x <= 1)) R.nan++; return ai.call(AU, x); };
       RUN.start();
       const dt = 1 / 60; let f = 0;
       while (S.mode !== 'win' && R.simT < 3600) {
@@ -47,7 +49,7 @@ const mode = process.argv[2] || 'all';
         if (f % 30 === 0) for (const e of ENT.list) if (!e.dead && !(isFinite(e.x) && isFinite(e.y) && isFinite(e.hp))) { R.nan++; break; }
       }
       R.bugsAfter = PATCH.bugs().length; R.errs = T.errs.slice(0, 5); R.nErr = T.errs.length; R.mode = S.mode; R.log = DIR.state.log.filter(s => !s.startsWith('wave')).join(' ');
-      R.music = AU.log.music.join(',');
+      R.music = R.mus.join(','); delete R.mus;
       return R;
     });
     console.log(JSON.stringify(r, null, 1).slice(0, 2500));

@@ -67,9 +67,14 @@ let fail = 0; const check = (ok, msg) => { if (!ok) { fail++; console.log('  FAI
       beats = 0; for (let i = 0; i < 40; i++) { AU.update(.25); if (S.beat === 1) beats++; } out.bigdt = beats;
       AU.mute(true); beats = 0; for (let i = 0; i < 300; i++) { AU.update(1 / 60); if (S.beat === 1 && prev !== 1) beats++; prev = S.beat; } out.muted = beats; AU.mute(false);
       let t0 = performance.now(); for (let i = 0; i < 1000; i++) AU.update(1 / 60); out.msPerFrame = (performance.now() - t0) / 1000;
+      const run = s => { let n = 0, pv = 0; for (let i = 0; i < s * 60; i++) { AU.update(1 / 60); if (S.beat === 1 && pv !== 1) n++; pv = S.beat; } return n; };
+      AU.sfx('shoot'); AU.sfx('nonsense'); AU.music('nonsense'); out.ignored = AU.song === 's4';
+      AU.music('s2'); run(9); out.s2bar = S.bar; AU.music('patch'); run(3); out.patchSong = AU.song; out.patchBpm = AU.bpm;
+      AU.music('s2'); run(.5); out.s2resumeBar = S.bar; AU.music(null); out.nullBeats = run(4); out.nullSong = AU.song;
       return out; });
     console.log(JSON.stringify(r));
     check(r.idle >= 18 && r.idle <= 22, 'idle 120bpm beats over 10s ~20');
+    check(r.ignored && r.patchSong === 'patch' && r.patchBpm === 84 && r.s2resumeBar === (r.s2bar & ~7) && r.nullSong === null && r.nullBeats >= 6, 'switch/resume/null');
     check(Math.abs(r.s4 - 26) <= 2, 's4 156 bpm beats over 10s ~26 (allowing 1-beat switch latency)'); check(r.muted >= 10, 'beats while muted');
   }
   if (phases.includes('bugs')) {
@@ -109,7 +114,7 @@ let fail = 0; const check = (ok, msg) => { if (!ok) { fail++; console.log('  FAI
     console.log('== flood: 15 shoot/s + 30 kill/s + music through the real graph (OfflineAudioContext, stepped at 60 fps) ==');
     const r = await p.evaluate(async () => { const { AU } = __T, sr = 48000, secs = 6, oc = new OfflineAudioContext(2, sr * secs, sr);
       AU._dev.attach(oc); AU.music('s5'); AU.intensity(1);
-      for (let i = 0; i < 30; i++) AU.update(1 / 60);  // pre-render sfx
+      AU._dev.flush();
       let maxV = 0, f = 0;
       for (let k = 1; k < secs * 60 - 25; k++) { const t = k / 60; oc.suspend(t).then(() => { AU.update(1 / 60); f++;
         if (k % 4 === 0) AU.sfx('shoot', { pan: Math.sin(k) * .8, pitch: 1 + (k % 3) * .05 }); if (k % 2 === 0) AU.sfx('kill', { pan: Math.cos(k) * .5 });

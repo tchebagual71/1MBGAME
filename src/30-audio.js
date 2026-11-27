@@ -155,7 +155,7 @@ const AU = (() => {
              c6 - - - a5 - - - f5 - - - a5 - c6 -   c6 - - - eb6 - - - d6 - - - f6 - - -` }
   };
   for (const k in SONGS) { const s = SONGS[k]; s.name = k; s.prog = prog(s.prog); s.lead = mel(s.lead); }
-  const IDLE = { name: '', bpm: 120, prog: [[chord('A')]] };
+  const IDLE0 = chord('A');
 
   // ---------------------------------------------------------------- LIVE pattern generators (patchable!)
   const base = {};
@@ -256,7 +256,7 @@ m.tone = TONE;`);
     [['mu.tune', 'SOUR=0', 'SOUR=.45'], ['mu.master', 'WOW=0', 'WOW=.3']]);
   bug('au_halftime', '0x0B70: HALFTIME', 'mu.tempo  HALF=1 -> HALF=.5 : the music clock runs at half speed', [['mu.tempo', 'HALF=1', 'HALF=.5']], .8);
   bug('au_drift', '0x7D21: CLOCK_DRIFT', 'mu.tempo  DRIFT=0 -> DRIFT=.16 : the tempo wobbles +-16%', [['mu.tempo', 'DRIFT=0', 'DRIFT=.16']]);
-  bug('au_bitrot', '0x8B17: BITROT', 'mu.master  BITS=16 -> BITS=5, HOLD=1 -> HOLD=4 : 5-bit crushed audio', [['mu.master', 'BITS=16', 'BITS=5'], ['mu.master', 'HOLD=1', 'HOLD=4']]);
+  bug('au_bitrot', '0x8B17: BITROT', 'mu.master  BITS=16 -> BITS=6, HOLD=1 -> HOLD=4 : 6-bit crushed audio', [['mu.master', 'BITS=16', 'BITS=6'], ['mu.master', 'HOLD=1', 'HOLD=4']]);
   bug('au_skew', '0x5E0F: STEP_SKEW', 'mu.drums  SHIFT=0 -> SHIFT=3 : drum pattern slips three 16ths', [['mu.drums', 'SHIFT=0', 'SHIFT=3']], .8);
 
   // ---------------------------------------------------------------- drum samples (synthesized once per sample rate)
@@ -269,40 +269,43 @@ m.tone = TONE;`);
   function norm(b, sr, pk) { let m = 0; for (let i = 0; i < b.length; i++) { const a = Math.abs(b[i]); if (a > m) m = a; }
     const k = m > 1e-9 ? (pk || 1) / m : 0, nf = Math.min(b.length, sr * .004 | 0);
     for (let i = 0; i < b.length; i++) b[i] *= k; for (let i = 0; i < nf; i++) b[b.length - 1 - i] *= i / nf; return b; }
-  function buildKit(sr) {
-    const D = {}, buf = d => new Float32Array(Math.ceil(d * sr));
-    const kick = (d, f0, f1, pr, ar, drive, click) => { const b = buf(d); let ph = 0;
+  // generator: yields every 4096 samples so the kit can be built across frames without a hitch
+  function* genKit(sr, D) {
+    nseed = 0x2545F491;                            // deterministic kit
+    const buf = d => new Float32Array(Math.ceil(d * sr));
+    function* kick(d, f0, f1, pr, ar, drive, click) { const b = buf(d); let ph = 0;
       for (let i = 0; i < b.length; i++) { const t = i / sr; ph += (f1 + f0 * Math.exp(-t * pr)) / sr;
-        b[i] = Math.tanh(Math.sin(TAU * ph) * Math.exp(-t * ar) * drive) + click * nrand() * Math.exp(-t * 600); }
-      return norm(b, sr); };
-    D.k0 = kick(.42, 170, 46, 36, 7, 1.8, .22);
-    D.k1 = kick(.6, 130, 40, 20, 4.6, 2.6, .16);
-    D.k2 = kick(.22, 260, 55, 55, 13, 5, .1);
-    D.tom = kick(.4, 75, 105, 15, 9, 1.3, .04);
-    { const b = buf(.32), n = buf(.32); let ph = 0;
-      for (let i = 0; i < b.length; i++) { const t = i / sr; ph += (175 + 70 * Math.exp(-t * 40)) / sr; b[i] = Math.sin(TAU * ph) * Math.exp(-t * 28) * .7; n[i] = nrand() * Math.exp(-t * 13); }
-      svf(n, 2, 1100, 1.4, sr); svf(n, 0, 9000, 1.2, sr); for (let i = 0; i < b.length; i++) b[i] += n[i] * 1.1; D.s0 = norm(b, sr); }
-    { const b = buf(.2), hs = Math.max(1, Math.round(sr / 11000)); let hv = 0;
-      for (let i = 0; i < b.length; i++) { const t = i / sr; if (i % hs === 0) hv = nrand(); b[i] = (hv * .8 + (Math.sin(TAU * 230 * t) > 0 ? .3 : -.3) * Math.exp(-t * 30)) * Math.exp(-t * 19); }
-      D.s1 = norm(b, sr); }
-    { const b = buf(.32), T0 = [0, .011, .022, .031];
-      for (let i = 0; i < b.length; i++) { const t = i / sr; let e = t > .031 ? .55 * Math.exp(-(t - .031) * 15) : 0;
-        for (const t0 of T0) if (t >= t0) e = Math.max(e, Math.exp(-(t - t0) * 180)); b[i] = nrand() * e; }
-      svf(b, 1, 1300, .9, sr); D.clap = norm(b, sr); }
-    const metal = (d, ar, hp, att) => { const b = buf(d), fr = [263, 400, 421, 474, 587, 845], ph = [0, 0, 0, 0, 0, 0];
+        b[i] = Math.tanh(Math.sin(TAU * ph) * Math.exp(-t * ar) * drive) + click * nrand() * Math.exp(-t * 600); if ((i & 1023) === 1023) yield; }
+      return norm(b, sr); }
+    function* metal(d, ar, hp, att) { const b = buf(d), fr = [263, 400, 421, 474, 587, 845], ph = [0, 0, 0, 0, 0, 0];
       for (let i = 0; i < b.length; i++) { const t = i / sr; let x = 0;
         for (let k = 0; k < 6; k++) { ph[k] += fr[k] * 2.4 / sr; if (ph[k] >= 1) ph[k] -= 1; x += ph[k] < .5 ? 1 : -1; }
-        b[i] = (x * .1 + nrand() * .6) * Math.exp(-t * ar) * (att ? Math.min(1, t / att) : 1); }
-      svf(b, 2, hp, 1.3, sr); svf(b, 2, hp * .8, 1.3, sr); return norm(b, sr); };
-    D.hat = metal(.09, 55, 7500); D.ohat = metal(.45, 7.5, 6500); D.crash = metal(1.5, 2.6, 4000, .004);
-    return D;
+        b[i] = (x * .1 + nrand() * .6) * Math.exp(-t * ar) * (att ? Math.min(1, t / att) : 1); if ((i & 1023) === 1023) yield; }
+      svf(b, 2, hp, 1.3, sr); yield; svf(b, 2, hp * .8, 1.3, sr); return norm(b, sr); }
+    D.k0 = yield* kick(.42, 170, 46, 36, 7, 1.8, .22);
+    D.k1 = yield* kick(.6, 130, 40, 20, 4.6, 2.6, .16);
+    D.k2 = yield* kick(.22, 260, 55, 55, 13, 5, .1);
+    D.tom = yield* kick(.4, 75, 105, 15, 9, 1.3, .04);
+    { const b = buf(.32), n = buf(.32); let ph = 0;
+      for (let i = 0; i < b.length; i++) { const t = i / sr; ph += (175 + 70 * Math.exp(-t * 40)) / sr; b[i] = Math.sin(TAU * ph) * Math.exp(-t * 28) * .7; n[i] = nrand() * Math.exp(-t * 13); if ((i & 1023) === 1023) yield; }
+      svf(n, 2, 1100, 1.4, sr); svf(n, 0, 9000, 1.2, sr); for (let i = 0; i < b.length; i++) b[i] += n[i] * 1.1; D.s0 = norm(b, sr); yield; }
+    { const b = buf(.2), hs = Math.max(1, Math.round(sr / 11000)); let hv = 0;
+      for (let i = 0; i < b.length; i++) { const t = i / sr; if (i % hs === 0) hv = nrand(); b[i] = (hv * .8 + (Math.sin(TAU * 230 * t) > 0 ? .3 : -.3) * Math.exp(-t * 30)) * Math.exp(-t * 19); }
+      D.s1 = norm(b, sr); yield; }
+    { const b = buf(.32), T0 = [0, .011, .022, .031];
+      for (let i = 0; i < b.length; i++) { const t = i / sr; let e = t > .031 ? .55 * Math.exp(-(t - .031) * 15) : 0;
+        for (const t0 of T0) if (t >= t0) e = Math.max(e, Math.exp(-(t - t0) * 180)); b[i] = nrand() * e; if ((i & 1023) === 1023) yield; }
+      svf(b, 1, 1300, .9, sr); D.clap = norm(b, sr); yield; }
+    D.hat = yield* metal(.09, 55, 7500); D.ohat = yield* metal(.45, 7.5, 6500); D.crash = yield* metal(1.5, 2.6, 4000, .004);
   }
+  const drain = g => { while (!g.next().done); };
 
   // ---------------------------------------------------------------- the synth engine (one per sample rate)
   function mkEngine(sr) {
     const bd = BLK / sr;
     let song = null, name = null, pend = null, hasPend = false, bar = 0, st = 0, toNext = 0, bpm = 120, stepLen = sr * 15 / 120, fresh = false;
-    let Itar = .5, Is = .5, chord = IDLE.prog[0][0], nxc = chord, onStep = null, ready = false, DR = null;
+    const IDLE = { name: '', bpm: 120 };
+    let Itar = .5, Is = .5, chord = IDLE0, nxc = chord, onStep = null, ready = false, DR = null;
     const mem = {};
     const mix = { int: .5, drum: 1, hat: 1, bass: 1, arp: 0, pad: 0, lead: 0 }, lg = { drum: 1, hat: 1, bass: 1, arp: 0, pad: 0, lead: 0 };
     const mst = { bits: 16, hold: 1, wow: 0, tone: 1 };
@@ -317,14 +320,17 @@ m.tone = TONE;`);
     let dlL = null, dlR = null, dlN = 0, dw = 0, dT = sr * .3, dfb = 0, combs = null, aps = null;
     let duck = 0, wowPh = 0, wowM = 1, toneM = 1, dcL = 0, dcR = 0, dxL = 0, dxR = 0, lL1 = 0, lL2 = 0, lR1 = 0, lR2 = 0, hc = 0, hL = 0, hR = 0, tsec = 0;
 
-    function prepare() {
-      if (ready) return; DR = buildKit(sr);
+    function* prep() {
+      if (ready) return; const D = {}; yield* genKit(sr, D); DR = D;
       dlN = Math.ceil(sr * 1.6); dlL = new Float32Array(dlN); dlR = new Float32Array(dlN);
       const sc = sr / 44100, CL = [1116, 1188, 1277, 1356], AL = [556, 441];
       combs = []; for (let c = 0; c < 2; c++) for (const l of CL) { const n = Math.round((l + c * 23) * sc); combs.push({ b: new Float32Array(n), n, i: 0, fs: 0, c }); }
       aps = []; for (let c = 0; c < 2; c++) for (const l of AL) { const n = Math.round((l + c * 23) * sc); aps.push({ b: new Float32Array(n), n, i: 0, c }); }
       ready = true;
     }
+    let job = null;
+    const prepare = () => { if (!ready) drain(job || (job = prep())); };
+    const prepJob = () => job || (job = prep());
     const setPan = (v, p) => { v.gl = Math.cos((p + 1) * PI / 4); v.gr = Math.sin((p + 1) * PI / 4); };
 
     function swap() {
@@ -555,7 +561,7 @@ m.tone = TONE;`);
     // virtual clock: run the sequencer only (no synthesis) — keeps S.beat alive without audio
     function advance(n) { while (toNext <= n) { n -= Math.max(0, toNext); toNext = 0; doStep(0); toNext += stepLen; } toNext -= n; }
     return {
-      sr, prepare, render, advance,
+      sr, prepare, prepJob, render, advance, get ready() { return ready; },
       music(n) { if (hasPend ? pend === n : n === name) return; pend = n; hasPend = true; },
       setI(x) { Itar = x; },
       set onStep(f) { onStep = f; },
@@ -568,7 +574,7 @@ m.tone = TONE;`);
   // ---------------------------------------------------------------- SFX: sfxr-style layered one-shots
   // T(b,sr,o): o {t start, d dur, f Hz, e end Hz (exp sweep), w sq|saw|tri|sin|nz|fm, v vol, a attack, p decay power,
   //               duty, vr/vd vibrato Hz/semitones, arp [semis], ar arp rate, fm ratio, fi index, crush levels, lp/bp/hp (+lp2.. end), q}
-  function T(b, sr, o) {
+  function* T(b, sr, o) {
     const s0 = Math.round((o.t || 0) * sr), n = Math.min(b.length - s0, Math.round(o.d * sr));
     const f0 = o.f, lr = Math.log((o.e || o.f) / f0), w = o.w || 'sq', v = o.v == null ? 1 : o.v, a = Math.max(.0015, o.a || 0), p = o.p == null ? 1 : o.p, duty = o.duty || .5;
     const ft = o.lp ? 0 : o.bp ? 1 : o.hp ? 2 : -1, fa = o.lp || o.bp || o.hp, fz = o.lp2 || o.bp2 || o.hp2 || fa, K = 1 / (o.q || .8);
@@ -595,6 +601,7 @@ m.tone = TONE;`);
       if (cr) y = Math.round(y * cr) / cr;
       if (ft >= 0) { const v3 = y - i2, v1 = a1 * i1 + a2 * v3, v2 = i2 + a2 * i1 + a3 * v3; i1 = 2 * v1 - i1; i2 = 2 * v2 - i2; y = ft === 0 ? v2 : ft === 1 ? v1 * K : y - K * v1 - v2; }
       b[s0 + i] += y * env; env += de;
+      if ((i & 1023) === 1023) yield;
     }
   }
   const NT = s => 523.25 * Math.pow(2, s / 12);       // semitones above C5
@@ -604,7 +611,7 @@ m.tone = TONE;`);
     shoot2: [.32, .045, 4, 0, .11, b => [{ d: .1, f: 820, e: 150, w: 'saw', p: 1.2, lp: 6000, lp2: 800 }, { d: .05, f: 30000, w: 'nz', v: .5, p: 2, lp: 5000 }, { d: .08, f: 140, e: 60, w: 'sin', v: .6, p: 1 }]],
     laser: [.42, .07, 3, 0, .3, b => [{ d: .28, f: 2600, e: 160, w: 'fm', fm: 1.5, fi: 4, p: 1, vr: 30, vd: .7 }, { d: .28, f: 2610, e: 165, w: 'saw', v: .3, p: 1.2, lp: 6000, lp2: 1200 }]],
     hit: [.3, .025, 5, 0, .06, b => [{ d: .05, f: 1900, e: 950, w: 'sq', duty: .5, v: .7, p: 2 }, { d: .03, f: 30000, w: 'nz', v: .7, p: 3, hp: 2500 }]],
-    kill: [.42, .028, 6, 0, .2, b => [{ d: .19, f: 30000, w: 'nz', p: 1.6, lp: 9000, lp2: 500 }, { d: .14, f: 560, e: 70, w: 'sq', duty: .4, v: .75, p: 1.2 }, { d: .1, f: 2400, w: 'nz', v: .4, p: 1 }]],
+    kill: [.4, .028, 5, 0, .2, b => [{ d: .19, f: 30000, w: 'nz', p: 1.6, lp: 9000, lp2: 500 }, { d: .14, f: 560, e: 70, w: 'sq', duty: .4, v: .75, p: 1.2 }, { d: .1, f: 2400, w: 'nz', v: .4, p: 1 }]],
     bigkill: [.75, .09, 3, .35, .75, b => [{ d: .7, f: 140, e: 30, w: 'sin', p: 1.3 }, { d: .65, f: 30000, w: 'nz', v: .9, p: 1.8, lp: 9000, lp2: 250 }, { t: .02, d: .45, f: 3000, e: 300, w: 'nz', v: .45, p: 1.1 }, { d: .2, f: 600, e: 50, w: 'sq', v: .4, p: 1 }]],
     hurt: [.7, .14, 2, .4, .34, b => [{ d: .32, f: 440, e: 80, w: 'saw', p: 1, vr: 38, vd: 1.6, crush: 5 }, { d: .14, f: 30000, w: 'nz', v: .7, p: 2 }, { d: .3, f: 220, e: 55, w: 'sq', v: .4, p: 1 }]],
     dash: [.42, .09, 2, 0, .24, b => [{ d: .23, f: 30000, w: 'nz', a: .03, p: 1.4, bp: 300, bp2: 4500, q: 3 }, { d: .18, f: 170, e: 520, w: 'tri', v: .35, a: .02, p: 1.5 }]],
@@ -626,19 +633,21 @@ m.tone = TONE;`);
     combo: [.38, .05, 3, 0, .11, b => [{ d: .1, f: 880, w: 'sq', duty: .5, p: 1.2, arp: [0, 7, 12], ar: 30 }]],
     type: [.2, .022, 3, 0, .03, b => [{ d: .025, f: 30000, w: 'nz', v: .8, p: 3, hp: 3500 }, { d: .01, f: 2100, w: 'sq', v: .4, p: 1 }]]
   };
-  function renderSfx(nm, sr) {
+  function* genSfx(nm, sr) {
     const D = SFXD[nm]; if (!D) return null;
     const b = new Float32Array(Math.ceil(D[4] * sr));
-    for (const o of D[5]()) T(b, sr, o);
+    for (const o of D[5]()) yield* T(b, sr, o);
     let x1 = 0, y1 = 0; for (let i = 0; i < b.length; i++) { const x = b[i]; y1 = x - x1 + .997 * y1; x1 = x; b[i] = y1; }   // DC block
     return norm(b, sr, 1);
   }
+  const run = g => { let r; while (!(r = g.next()).done); return r.value; };
+  const renderSfx = (nm, sr) => run(genSfx(nm, sr));
 
   // ---------------------------------------------------------------- WebAudio plumbing
   let ctx = null, master = null, musG = null, sfxG = null, dead = !AC, muted = false, live = false, fails = 0, force = false;
   const running = () => !!(ctx && !dead && (force || ctx.state === 'running'));
   let eng = mkEngine(48000), esr = 48000, pool = null, poolI = 0, playF = 0, Lb = null, Rb = null, chunkT = 0;
-  const sbuf = {}, sq = [], rl = {}, voices = [];
+  const sbuf = {}, jobs = [], rl = {}, voices = [];
   let sfxEnv = 0, lvl = 0, curLvl = 0, fbT = 0;
   const EVN = 256, evT = new Float64Array(EVN), evS = new Int16Array(EVN), evB = new Int32Array(EVN); let evH = 0, evN = 0;
   const LVN = 64, lvT = new Float64Array(LVN), lvV = new Float32Array(LVN); let lvH = 0, lvN = 0;
@@ -655,16 +664,20 @@ m.tone = TONE;`);
         master = ctx.createGain(); musG = ctx.createGain(); sfxG = ctx.createGain();
         const comp = ctx.createDynamicsCompressor();
         comp.threshold.value = -4; comp.knee.value = 4; comp.ratio.value = 16; comp.attack.value = .002; comp.release.value = .15;
-        musG.connect(master); sfxG.connect(master); master.connect(comp); comp.connect(ctx.destination);
-        sfxG.gain.value = .9;
+        // final safety: soft clipper after the compressor, so the output can never exceed ±0.98
+        const pre = ctx.createGain(), sh = ctx.createWaveShaper(), cv = new Float32Array(1025);
+        for (let i = 0; i < 1025; i++) { const x = (i / 512 - 1) * 1.5; cv[i] = .98 * (x - .148148 * x * x * x); }
+        pre.gain.value = 1 / 1.5; sh.curve = cv;
+        musG.connect(master); sfxG.connect(master); master.connect(comp); comp.connect(pre); pre.connect(sh); sh.connect(ctx.destination);
+        sfxG.gain.value = .75;
         muted = muted || !!(S.opt && S.opt.mute); master.gain.value = muted ? 0 : 1;
         const sr = ctx.sampleRate; esr = sr > 50000 ? sr / 2 : sr;
         if (esr !== eng.sr) { const s = eng.state; eng = mkEngine(esr); eng.load(s); wire(); }
-        eng.prepare();
+        jobs.length = 0; jobs.push({ g: eng.prepJob() });          // drum kit + fx buffers, built across frames
         pool = []; const np = Math.ceil(LOOK * 2 * esr / CHUNK) + 6;
         for (let i = 0; i < np; i++) pool.push(ctx.createBuffer(2, CHUNK, esr));
         Lb = new Float32Array(CHUNK); Rb = new Float32Array(CHUNK);
-        for (const k in SFXD) if (!sbuf[k]) sq.push(k);
+        for (const k in SFXD) if (!sbuf[k]) jobs.push({ g: genSfx(k, ctx.sampleRate), nm: k });
         if (!ext) try { const u = ctx.createBufferSource(); u.buffer = ctx.createBuffer(1, 1, sr); u.connect(ctx.destination); u.start(0); } catch (e) { }   // iOS unlock
       }
       if (!ext && ctx.state !== 'running' && ctx.resume) { const p = ctx.resume(); if (p && p.catch) p.catch(() => { }); }
@@ -682,10 +695,10 @@ m.tone = TONE;`);
     const src = ctx.createBufferSource(); src.buffer = buf; src.connect(musG); src.start(chunkT);
     playF += CHUNK; stat.chunks++; stat.renderMs += performance.now() - t0;
   }
-  function pump() {
+  function pump(dt) {
     const t = ctx.currentTime;
-    if (playF / esr < t + .012) { if (playF) stat.resyncs++; playF = Math.ceil((t + .05) * esr); }
-    let k = Math.ceil(LOOK * esr / CHUNK) + 2;
+    let k = 2 + Math.ceil(dt * esr / CHUNK);     // bounded work per frame: keeps up at low fps, never spirals
+    if (playF / esr < t + .012) { if (playF) stat.resyncs++; else k = 1; playF = Math.ceil((t + .05) * esr); }   // late or first: resync
     while (playF / esr < t + LOOK && k-- > 0) chunk();
   }
 
@@ -693,15 +706,15 @@ m.tone = TONE;`);
     dt = dt > 0 ? Math.min(dt, .25) : 0;
     S.beat = S.beat > .004 ? S.beat * Math.exp(-dt * 8) : 0;
     sfxEnv *= Math.exp(-dt * 7);
+    const t0 = performance.now();
     try {
-      const on = running() && !muted;
+      const on = running() && !muted && eng.ready;
       if (on !== live) { live = on; evN = 0; lvN = 0; playF = 0; }
-      if (live) pump(); else eng.advance(dt * eng.sr);
+      if (live) pump(dt); else eng.advance(dt * eng.sr);
       const now = live ? ctx.currentTime - Math.min(.2, Math.max(0, ctx.outputLatency || ctx.baseLatency || 0)) : Infinity;
       while (evN && evT[evH] <= now) { const s = evS[evH]; S.step = s; S.bar = evB[evH]; if ((s & 3) === 0) S.beat = 1; evH = (evH + 1) % EVN; evN--; }
       if (live) { while (lvN && lvT[lvH] <= now) { curLvl = lvV[lvH]; lvH = (lvH + 1) % LVN; lvN--; } } else curLvl = 0;
-      // lazy sfx pre-render, ~2 ms per frame
-      if (ctx && sq.length) { const t0 = performance.now(); while (sq.length && performance.now() - t0 < 2) { const k = sq.shift(); if (!sbuf[k]) mkBuf(k); } }
+      if (jobs.length) work(2.5 - (performance.now() - t0));   // background synthesis of kit + sfx within a ~2.5 ms frame budget
       if (voices.length) { const t = ctx.currentTime; for (let i = voices.length - 1; i >= 0; i--) if (voices[i].end < t) voices.splice(i, 1); }
       fails = 0;
     } catch (e) {
@@ -713,8 +726,12 @@ m.tone = TONE;`);
     A.level = Math.max(0, Math.min(1, lvl));
   }
 
-  function mkBuf(nm) {
-    try { const d = renderSfx(nm, ctx.sampleRate), b = ctx.createBuffer(1, d.length, ctx.sampleRate);
+  function work(ms) {
+    const t0 = performance.now();
+    while (jobs.length && performance.now() - t0 < ms) { const j = jobs[0], r = j.g.next(); if (r.done) { jobs.shift(); if (j.nm && !sbuf[j.nm] && r.value) mkBuf(j.nm, r.value); } }
+  }
+  function mkBuf(nm, d) {
+    try { d = d || renderSfx(nm, ctx.sampleRate); const b = ctx.createBuffer(1, d.length, ctx.sampleRate);
       if (b.copyToChannel) b.copyToChannel(d, 0); else b.getChannelData(0).set(d); sbuf[nm] = b; return b; } catch (e) { return null; }
   }
   function kill(v, t) { try { v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0, t, .006); v.src.stop(t + .04); } catch (e) { } }
@@ -748,7 +765,7 @@ m.tone = TONE;`);
     mute(b) { muted = !!b; try { if (master) master.gain.setTargetAtTime(muted ? 0 : 1, ctx.currentTime, .03); } catch (e) { } },
     get bpm() { return eng.bpm; }, get song() { return eng.song; }, get ready() { return live; },
     songs: Object.keys(SONGS), sfxNames: Object.keys(SFXD),
-    _dev: { mkEngine, renderSfx, SONGS, SFXD, stat, attach(c) { force = true; init(c); }, get ctx() { return ctx; }, get eng() { return eng; }, get voices() { return voices.length; } }
+    _dev: { mkEngine, renderSfx, SONGS, SFXD, stat, attach(c) { force = true; init(c); }, flush() { work(1e9); }, get ctx() { return ctx; }, get eng() { return eng; }, get voices() { return voices.length; }, get jobs() { return jobs.length; } }
   };
   return A;
 })();
