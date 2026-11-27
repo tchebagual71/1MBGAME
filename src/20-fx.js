@@ -185,6 +185,7 @@ for (let j = 0; j < sz.length; j++) {
     if (px < 0 || py < 0 || px >= W || py >= H) continue;
     const p = py * W + px, c = o[p], l = lum * f, r = (c & 255) + l * (tint & 255) / 255, g = (c >> 8 & 255) + l * (tint >> 8 & 255) / 255, bl = (c >> 16 & 255) + l;
     o[p] = (r > 255 ? 255 : r) | (g > 255 ? 255 : g) << 8 | (bl > 255 ? 255 : bl) << 16;
+    if (l > 150 && px < W - 1) o[p + 1] = o[p];
   }
 }`);
   live('starfield', { init(Z) {
@@ -275,7 +276,7 @@ for (let x = 0; x < W; x++) {
   } });
 
   // ===== METABALLS — inverse-square field at half-res, glowing iso band =====
-  jit('metaballs', { NB: 7, RAD: 18, GAIN: 70, SPD: .55 }, `
+  jit('metaballs', { NB: 7, RAD: 14, GAIN: 70, SPD: .55 }, `
 const f8 = Z.f8, dx2 = Z.dx2, dy2 = Z.dy2, r2 = Z.r2, FWh = ${HW};
 for (let j = 0; j < NB; j++) {
   const bx = FWh / 2 + Math.sin(t * SPD * (1 + j * .21) + j * 1.7) * (60 + j * 7), by = ${HH / 2} + Math.cos(t * SPD * (.8 + j * .17) + j * 2.9) * (36 + j * 3);
@@ -294,7 +295,7 @@ LIVE.fn['fx.up2'](f8, Z.pal, o);`);
   live('metaballs', { init(Z) {
     Z.f8 = new Uint8Array(HW * HH); Z.dx2 = new Float32Array(16 * HW); Z.dy2 = new Float32Array(16); Z.r2 = new Float32Array(16); Z.by = new Float32Array(16);
     Z.pal = grad([[0, 2, 6, 14], [.12, 6, 20, 46], [.22, 12, 50, 100], [.26, 40, 160, 210], [.28, 200, 255, 250], [.31, 60, 30, 120],
-      [.45, 150, 30, 160], [.65, 250, 70, 150], [.85, 255, 170, 120], [1, 255, 250, 220]]);
+      [.45, 150, 30, 160], [.62, 250, 70, 150], [.74, 255, 170, 120], [.8, 255, 235, 200], [.88, 200, 60, 150], [1, 70, 15, 110]]);
   } });
 
   // ===== MOIRE — three wandering ring sources, interfering products in two additive palettes =====
@@ -385,24 +386,32 @@ for (let n = 0; n < NL; n++) {
   } });
 
   // ===== FEEDBACK — zoom/rotate feedback of the previous frame + lissajous light seeds =====
-  jit('feedback', { ZOOM: .972, SPIN: .014, DR: 236, DG: 242, DB: 250, SEEDS: 9 }, `
+  jit('feedback', { ZOOM: .975, SPIN: .03, DR: 240, DG: 244, DB: 248, SEEDS: 4, SIDES: 5, DOTS: 24 }, `
 const P = Z.p, Q = Z.q, hue = Z.hue, spr = Z.spr;
-const a = SPIN * (1.4 * Math.sin(t * .23)) + k * .06, zz = ZOOM - k * .04 - b * .006, ca = Math.cos(a) * zz, sa = Math.sin(a) * zz;
+const a = SPIN * Math.sin(t * .23) + k * .06, zz = ZOOM - k * .04 - b * .008, ca = Math.cos(a) * zz, sa = Math.sin(a) * zz;
 const du = ca * 65536 | 0, dv = sa * 65536 | 0;
 let u0 = (W / 2 + ca * -W / 2 - sa * -H / 2) * 65536, v0 = (H / 2 + sa * -W / 2 + ca * -H / 2) * 65536;
 for (let y = 0, i = 0; y < H; y++, u0 -= dv, v0 += du) {
   let u = u0 | 0, v = v0 | 0;
   for (let x = 0; x < W; x++, i++, u += du, v += dv) {
     const sx = u >> 16, sy = v >> 16;
-    if (sx < 0 || sy < 0 || sx >= W || sy >= H) { Q[i] = 0; continue; }
-    const c = P[sy * W + sx];
+    if (sx < 1 || sy < 0 || sx >= W || sy >= H) { Q[i] = 0; continue; }
+    const p = sy * W + sx, c = ((P[p] & 0xfefefe) >> 1) + ((P[p - 1] & 0xfefefe) >> 1);
     Q[i] = ((c & 255) * DR >> 8) | ((c >> 8 & 255) * DG >> 8) << 8 | ((c >> 16 & 255) * DB >> 8) << 16;
   }
 }
-for (let s = 0; s < SEEDS; s++) {
-  const ph = t * 1.3 + s * TAU / SEEDS, cx = (W / 2 + Math.sin(ph * 1.5 + t * .2) * 150) | 0, cy = (H / 2 + Math.sin(ph * 2 + t * .37) * 85) | 0;
-  const c = hue[((t * 40) + s * 28) & 255], cr = c & 255, cg = c >> 8 & 255, cb = c >> 16 & 255, gain = 150 + b * 105;
-  for (let yy = -6, j = 0; yy <= 6; yy++) for (let xx = -6; xx <= 6; xx++, j++) {
+const n = SEEDS + SIDES * DOTS, rr = 30 + 12 * Math.sin(t * .9) + b * 16 + k * 40, rot = t * .8;
+for (let s = 0; s < n; s++) {
+  let cx, cy, c, R = 6;
+  if (s < SEEDS) { const ph = t * 1.1 + s * TAU / SEEDS; cx = W / 2 + Math.sin(ph * 1.5 + t * .2) * 170; cy = H / 2 + Math.sin(ph * 2 + t * .37) * 95; c = hue[((t * 40) + s * 64) & 255]; }
+  else { // polygon outline: the feedback turns it into an endless tunnel of copies
+    const q = s - SEEDS, e = (q / DOTS) | 0, f = (q % DOTS) / DOTS, a0 = rot + e * TAU / SIDES, a1 = a0 + TAU / SIDES;
+    cx = W / 2 + (Math.cos(a0) * (1 - f) + Math.cos(a1) * f) * rr * 1.25; cy = H / 2 + (Math.sin(a0) * (1 - f) + Math.sin(a1) * f) * rr;
+    c = hue[((t * 30) + e * 10) & 255]; R = 2;
+  }
+  cx |= 0; cy |= 0;
+  const cr = c & 255, cg = c >> 8 & 255, cb = c >> 16 & 255, gain = R > 2 ? 190 + b * 65 : 120;
+  for (let yy = -R; yy <= R; yy++) for (let xx = -R, j = (yy + 6) * 13 + 6 - R; xx <= R; xx++, j++) {
     const px = cx + xx, py = cy + yy; if (px < 0 || py < 0 || px >= W || py >= H) continue;
     const p = py * W + px, q = Q[p], g = spr[j] * gain >> 8, r = (q & 255) + (cr * g >> 8), gg = (q >> 8 & 255) + (cg * g >> 8), bb = (q >> 16 & 255) + (cb * g >> 8);
     Q[p] = (r > 255 ? 255 : r) | (gg > 255 ? 255 : gg) << 8 | (bb > 255 ? 255 : bb) << 16;
@@ -416,19 +425,22 @@ o.set(Q); Z.p = Q; Z.q = P;`);
   } });
 
   // ===== KEFRENS — one persistent line buffer, a cylinder sprite stamped per scanline =====
-  jit('kefrens', { BW: 26, A1: 150, A2: 54, F1: .011, F2: .034, SPD: 1.5 }, `
-const lb = Z.lb, spr = Z.spr, bgc = Z.bgc;
-lb.fill(bgc);
+  jit('kefrens', { BW: 30, A1: 140, A2: 26, F1: .008, F2: .029, SPD: 1.4, CHAINS: 3 }, `
+const lb = Z.lb, spr = Z.spr;
+lb.fill(Z.bgc);
 for (let y = 0, i = 0; y < H; y++, i += W) {
-  const x0 = (W / 2 - BW / 2 + A1 * Math.sin(y * F1 + t * SPD) * (.75 + .25 * Math.sin(t * .4)) + A2 * Math.sin(y * F2 - t * SPD * 1.7 + k * 3)) | 0;
-  const s = (((y >> 2) + ((t * 18) | 0)) & 15) * 32;
-  for (let j = 0; j < BW; j++) { const xx = x0 + j; if (xx >= 0 && xx < W) lb[xx] = spr[s + (j * 32 / BW | 0)]; }
+  for (let n = 0; n < CHAINS; n++) {
+    const ph = t * SPD * (n & 1 ? -1.13 : 1 + n * .2) + n * 2.2;
+    const x0 = (W / 2 - BW / 2 + A1 * Math.sin(y * F1 + ph) * (.8 + .2 * Math.sin(t * .4 + n)) + A2 * Math.sin(y * F2 - ph * 1.7 + k * 3)) | 0;
+    const s = (((y >> 3) + n * 8 + ((t * 12) | 0)) & 15) * 32;
+    for (let j = 0; j < BW; j++) { const xx = x0 + j; if (xx >= 0 && xx < W) lb[xx] = spr[s + (j * 32 / BW | 0)]; }
+  }
   o.set(lb, i);
 }`);
   live('kefrens', { init(Z) {
     const hp = grad([[0, 255, 50, 90], [.2, 255, 170, 40], [.4, 230, 255, 90], [.6, 50, 230, 210], [.8, 110, 80, 255], [1, 255, 50, 90]], 1);
     Z.spr = new Uint32Array(16 * 32);
-    for (let s = 0; s < 16; s++) { const h = hp[(s * 16) & 255]; for (let j = 0; j < 32; j++) { const p = Math.sin(PI * (j + .5) / 32), l = Math.pow(p, 1.6), sp = Math.pow(p, 18) * 170;
+    for (let s = 0; s < 16; s++) { const h = hp[(s * 16) & 255]; for (let j = 0; j < 32; j++) { const p = Math.sin(PI * (j + .5) / 32), l = .15 + .85 * Math.pow(p, .9), sp = Math.pow(p, 16) * 150;
       Z.spr[s * 32 + j] = col(cr(h) * l + sp, cg(h) * l + sp, cb(h) * l + sp); } }
     Z.lb = new Uint32Array(W); Z.bgc = col(6, 4, 18);
   } });
