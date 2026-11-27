@@ -96,11 +96,11 @@ let fail = 0; const check = (ok, msg) => { if (!ok) { fail++; console.log('  FAI
   }
   if (phases.includes('live')) {
     console.log('== live AudioContext (rAF loop 4 s) ==');
-    const r = await p.evaluate(() => new Promise(res => { const { AU, S } = __T; AU.init(); AU.music('title'); AU.intensity(.7);
+    const r = await p.evaluate(() => new Promise(res => { const { AU, S } = __T; const ti = performance.now(); AU.init(); const initMs = performance.now() - ti; AU.music('title'); AU.intensity(.7); let worstF = 0;
       let n = 0, cost = 0, worst = 0, beats = 0, prev = 0, last = performance.now(); const lv = [];
-      function f(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; const t0 = performance.now(); AU.update(dt); const c = performance.now() - t0; if (n > 30) { cost += c; worst = Math.max(worst, c); }
+      function f(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; const t0 = performance.now(); AU.update(dt); const c = performance.now() - t0; if (n > 30) { cost += c; worst = Math.max(worst, c); } else worstF = Math.max(worstF, c);
         if (S.beat === 1 && prev !== 1) beats++; prev = S.beat; lv.push(AU.level); if (n % 7 === 0) AU.sfx('shoot');
-        if (++n < 240) requestAnimationFrame(f); else res({ state: AU._dev.ctx.state, sr: AU._dev.ctx.sampleRate, frames: n, avgMs: cost / (n - 31), worstMs: worst, beats, stat: AU._dev.stat, lvMax: Math.max(...lv), lvMean: lv.reduce((a, b) => a + b) / lv.length, ready: AU.ready }); }
+        if (++n < 240) requestAnimationFrame(f); else res({ initMs, worstFirst30: worstF, state: AU._dev.ctx.state, sr: AU._dev.ctx.sampleRate, frames: n, avgMs: cost / (n - 31), worstMs: worst, beats, stat: AU._dev.stat, lvMax: Math.max(...lv), lvMean: lv.reduce((a, b) => a + b) / lv.length, ready: AU.ready }); }
       requestAnimationFrame(f); }));
     console.log(JSON.stringify(r));
     check(r.ready && r.stat.chunks > 100, 'live rendering'); check(r.beats >= 4, 'beats live'); check(r.avgMs < 1.5, 'per-frame cost');
